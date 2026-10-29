@@ -10,6 +10,8 @@
 # thinking, so the title appears the moment it exists and the rest of the card
 # fills in underneath. See stream_answer() and CardStream.
 
+import io
+import http.client
 import json
 import re
 import ssl
@@ -169,9 +171,59 @@ def lexicon_card(word: str, entries: list) -> dict:
 
 # ---- Tier 2: AI (Claude and/or Gemini — whichever key the admin connected) ----
 
+# One HTTPS connection per worker thread, kept open between calls.
+#
+# urllib opens a fresh TCP and TLS connection every time. The ear was measured
+# paying ~0.2s for that on every utterance, and more on a slow link; the
+# planner pays it too, on every request a preacher makes. Measured on the
+# planner: 3.19s on a cold connection against 1.36s warm.
+#
+# An idle connection is eventually dropped by the far end, so a socket error
+# retries once on a fresh one. An HTTP error status is NOT a socket error and
+# is raised as-is — callers distinguish 429 from a dropped connection and must
+# keep being able to.
+_conn_local = threading.local()
+
+
 def _http_json(req: urllib.request.Request, timeout: float):
-    with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx) as r:
-        return json.loads(r.read().decode("utf-8"))
+    parsed = urllib.parse.urlsplit(req.full_url)
+    if parsed.scheme != "https" or req.data is None:
+        # Anything unusual takes the plain path. Not worth a special case.
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx) as r:
+            return json.loads(r.read().decode("utf-8"))
+
+    path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
+    pool = getattr(_conn_local, "pool", None)
+    if pool is None:
+        pool = _conn_local.pool = {}
+
+    for attempt in (1, 2):
+        conn = pool.get(parsed.netloc)
+        if conn is None:
+            conn = http.client.HTTPSConnection(
+                parsed.netloc, timeout=timeout, context=_ssl_ctx
+            )
+            pool[parsed.netloc] = conn
+        try:
+            conn.request("POST", path, body=req.data, headers=dict(req.headers))
+            res = conn.getresponse()
+            payload = res.read()
+            status, reason, head = res.status, res.reason, res.headers
+        except (http.client.HTTPException, OSError):
+            try:
+                conn.close()
+            except Exception:
+                pass
+            pool.pop(parsed.netloc, None)
+            if attempt == 2:
+                raise
+        else:
+            if status >= 400:
+                raise urllib.error.HTTPError(
+                    req.full_url, status, reason, head, io.BytesIO(payload)
+                )
+            return json.loads(payload.decode("utf-8"))
+    raise RuntimeError("unreachable")
 
 
 # Whether a subject is religious is not a judgement call the model should be

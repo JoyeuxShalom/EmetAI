@@ -491,6 +491,29 @@ const ASK_VERB =
 const EXPLICIT_REQUEST =
   /\b(?:can|could|would|will)\s+you\b|\b(?:give|show|find|bring|pull|read|put)\s+(?:me|us)\b|\b(?:that|the|which|what)\s+(?:verse|scripture|passage|chapter)\b|\bwhere\s+(?:is|does)\s+(?:it|the\s+bible)\b|\bumurongo\s+(?:uvuga|wavuga)\b|\bmpa\s+umurongo\b|\bdonne\s*(?:-|\s)?moi\s+(?:le|ce)\s+verset\b|\bquel\s+verset\b/
 
+/**
+ * A request, in Kinyarwanda.
+ *
+ * This is the gap that made EmetAI useless to a Kinyarwanda preacher. Asked in
+ * English — "can you give us that scripture about the cave of Adullam" — the
+ * sentence matched EXPLICIT_REQUEST, which allows up to forty words, reached
+ * the agent, and 1 Samuel 22 went on the wall. The SAME request in Kinyarwanda
+ * — "Ndavuga ngo baduhe icyo cyandikwa igihe Dawidi yahuraga n'abasirikare be
+ * mu buvumo bwa Aduramu" — matched nothing, fell through to the ten-word rule
+ * at fourteen words, and was thrown away. The ear heard it correctly; nothing
+ * downstream knew it was a request.
+ *
+ * Two parts, and BOTH are required, because either alone is ordinary speech:
+ * "Imana ibaduhe umugisha" ("God give you blessing") is a benediction, not an
+ * instruction, and it contains a giving verb. Pairing the verb with something
+ * the Bible actually is keeps the benediction out.
+ */
+const RW_REQUEST_VERB =
+  /\b(?:ba?duhe|uduhe|duhe|mpa|umpe|tubwire|mbwira|nyereka|unyereke|twereke|erekana|dusome|usome|sobanura|shakisha|fungura|garuka\s+ku)\b/
+
+const RW_SCRIPTURE_WORD =
+  /\b(?:umurongo|imirongo|igice|ibice|cyandikwa|icyanditswe|ibyanditswe|gitabo|igitabo|bibiliya|ijambo|amagambo|zaburi|ivanjiri)\b/
+
 /** Markers of preaching TO people rather than instructing a machine. */
 const CONGREGATION =
   /\b(?:brothers?|sisters?|church|congregation|somebody|everybody|beloved|saints|amen|hallelujah|your\s+bibles?|with\s+me|let\s+us|lets|we\s+are|i\s+want\s+to\s+tell|i\s+believe|i\s+remember|bakristo|bavandimwe|mwese|freres?|soeurs?)\b/
@@ -510,6 +533,11 @@ export function looksLikeInstruction(rawText: string): boolean {
   // An unmistakable request stands on its own, however long — describing the
   // verse you want instead of citing it takes a whole sentence.
   if (EXPLICIT_REQUEST.test(t) && words <= 40) return true
+
+  // The same allowance in Kinyarwanda. Describing a passage takes just as many
+  // words in Kinyarwanda as in English, and until this existed every such
+  // request was discarded by the ten-word rule below.
+  if (RW_REQUEST_VERB.test(t) && RW_SCRIPTURE_WORD.test(t) && words <= 40) return true
 
   // Otherwise a whole paragraph is preaching, not an instruction.
   if (words > 14) return false
