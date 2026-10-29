@@ -18,6 +18,7 @@ import {
 import type { OnlineBible } from "../data/online"
 import { LocalEar } from "../lib/localEar"
 import { CONFIDENT, matchQuote, warmQuoteIndex } from "../lib/quoteMatch"
+import { CommandGate } from "../lib/commandGate"
 import { FAST_COMMAND_MS, SILENCE_MS, UtteranceAssembler } from "../lib/utterance"
 import {
   isSpeaking,
@@ -134,6 +135,13 @@ const LOCAL_EAR_SETTLE_MS = 700
 // operator wait a further 700ms on top was paying for the same pause three
 // times. Just long enough to join two finals that arrive together.
 const REMOTE_EAR_SETTLE_MS = 120
+
+// The language the trigger lane listens in. Commands are spoken in English
+// even in a Kinyarwanda service - "Emet, John three sixteen" - and Chrome's
+// recogniser has no Kinyarwanda at all, so asking it for one would only
+// produce noise. Free text still goes to Gemini, in whatever language it was
+// actually spoken.
+const FAST_LANE_LANG = "en-US"
 
 const EAR_LANG_CODE: Record<EarLang, "en" | "fr" | "rw"> = {
   // Answers default to English for the mixed ear; a spoken question in
@@ -350,7 +358,23 @@ export default function OperatorView({
   // Reassembles the ear's fragments into whole sentences. Held in a ref so the
   // wake word can shorten its silence window without rebuilding the ear.
   const utteranceRef = useRef<UtteranceAssembler | null>(null)
-  const lastWakeCmd = useRef<{ sig: string; at: number }>({ sig: "", at: 0 })
+  const gate = useRef(new CommandGate())
+  // —— The fast lane ——
+  // The Gemini ear is accurate but a command spoken into it waits out the
+  // silence window AND a round trip to Google: about three seconds before a
+  // verse moves. That is slower than a good operator with a keyboard, which
+  // is the whole gap this product exists to close.
+  //
+  // So the browser's own recogniser runs ALONGSIDE it, purely as a trigger.
+  // It is never displayed and never feeds verse matching — it exists to spot
+  // "Emet, John three sixteen" or "next verse" while the words are still
+  // being spoken, act on them at once, and flush the Gemini utterance early
+  // so the accurate transcript arrives sooner too.
+  //
+  // It runs in the BROWSER, which is what makes it affordable: the last
+  // attempt at a fast lane decoded Whisper on the server and starved the
+  // network call that mattered. This one costs the server nothing.
+
   // "Emet…" heard but the command was unfinished — stay awake and stitch the
   // following utterances onto it ("…a word called" / "elohimi").
   const wakeAwait = useRef<{ parts: string[]; at: number } | null>(null)
@@ -946,25 +970,33 @@ export default function OperatorView({
 
   /** Execute an "Emet …" command. Wake commands bypass Suggest mode — the
    *  preacher asked out loud, so the answer goes straight to the wall. */
-  function handleWakeCommand(cmd: WakeCommand, isFinal: boolean): boolean {
+  function handleWakeCommand(
+    cmd: WakeCommand,
+    isFinal: boolean,
+    source: "ear" | "fast" = "ear"
+  ): boolean {
+
     // Questions fire once, on the committed utterance (the flush makes that
     // near-instant); references and controls act on interims for speed.
     if ((cmd.intent === "define" || cmd.intent === "knowledge") && !isFinal) return true
 
     if (isFinal) recordLine(cmd.heard ?? "", "command", cmd.intent)
-    const sig = wakeSig(cmd)
-    const now = Date.now()
-    // Saying "previous verse" twice means go back twice. The only duplicates
-    // worth suppressing are the recogniser emitting one utterance more than
-    // once, which happens within a few hundred milliseconds — never the ~1.5s
-    // it takes a person to repeat themselves.
-    const movement =
-      cmd.intent === "goto" ||
-      cmd.intent === "gotoChapter" ||
-      (cmd.intent === "control" && (cmd.action === "next" || cmd.action === "prev"))
-    const dedupeMs = movement ? 900 : cmd.intent === "control" ? 3000 : 10000
-    if (lastWakeCmd.current.sig === sig && now - lastWakeCmd.current.at < dedupeMs) return true
-    lastWakeCmd.current = { sig, at: now }
+    // Whether this runs at all — one ear echoing itself, or the accurate ear
+    // repeating what the trigger lane already did. See src/lib/commandGate.ts.
+    if (
+      !gate.current.admit({
+        sig: wakeSig(cmd),
+        movement:
+          cmd.intent === "goto" ||
+          cmd.intent === "gotoChapter" ||
+          (cmd.intent === "control" && (cmd.action === "next" || cmd.action === "prev")),
+        control: cmd.intent === "control",
+        source,
+        now: Date.now(),
+      })
+    ) {
+      return true
+    }
     playChime()
     track("wake_command")
 
@@ -1083,6 +1115,30 @@ export default function OperatorView({
   // depending on state would tear the microphone down and rebuild it every
   // time a verse went on screen, and the next sentence would be lost.
   const onTranscriptRef = useRef<(text: string, isFinal: boolean) => void>(() => {})
+
+  // What the fast lane does with what it hears. Deliberately narrow: it may
+  // only act on something that already parses as a complete command. It never
+  // writes to the transcript, never reaches quote matching, and never asks the
+  // agent — so a mis-hearing of Kinyarwanda cannot put a wrong verse on a wall
+  // or invent a line in the record. The worst it can do is nothing.
+  const onFastHintRef = useRef<(text: string) => void>(() => {})
+  onFastHintRef.current = (text: string) => {
+    if (!wakeEnabled || isSpeaking()) return
+    const cmd = detectWakeCommand(text) ?? detectBareCommand(text)
+    if (!cmd) return
+    // Questions need the accurate transcript — the fast lane is not good
+    // enough to ask the agent with, and a wrong question wastes an API call
+    // and the operator's attention.
+    if (cmd.intent === "define" || cmd.intent === "knowledge") {
+      earRef.current?.flush()   // still worth cutting the utterance early
+      return
+    }
+    if (handleWakeCommand(cmd, true, "fast")) {
+      // The words are already spoken and acted on; commit the utterance now
+      // rather than letting it sit out the silence window.
+      earRef.current?.flush()
+    }
+  }
 
   onTranscriptRef.current = (text: string, isFinal: boolean) => {
         // Emet must never hear itself. The microphone stays open while it
@@ -1442,12 +1498,35 @@ export default function OperatorView({
           "en" | "fr" | "rw" | "auto",
         callbacks
       )
+
+      // The trigger lane. Only for the remote ear: the offline ears already
+      // produce interims of their own, and running two recognisers over one
+      // microphone is a cost worth paying only where it buys three seconds.
+      let fast: SpeechListener | null = null
+      if (earLang === "gemini-auto") {
+        try {
+          fast = new SpeechListener()
+          fast.start(FAST_LANE_LANG, {
+            onTranscript: (text) => onFastHintRef.current(text),
+            // Silent on purpose. If the browser refuses a second recogniser,
+            // or this machine has none, the Gemini ear carries on exactly as
+            // before - slower, but working. A convenience must never be able
+            // to take the ear down with it.
+            onError: () => {},
+          })
+        } catch {
+          fast = null
+        }
+      }
+
       return () => {
         earRef.current = null
         utteranceRef.current = null
         utterance.reset()
         setMicLevel(0)
         ear.stop()
+        fast?.stop()
+        gate.current.reset()
         closeService()
       }
     }
@@ -1460,6 +1539,7 @@ export default function OperatorView({
       utterance.reset()
       setMicLevel(0)
       listener.stop()
+      gate.current.reset()
       closeService()
     }
   }, [listening, earLang])
