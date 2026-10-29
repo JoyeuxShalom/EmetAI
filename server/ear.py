@@ -90,6 +90,18 @@ SPEECH_OVER_FLOOR = 2.5    # speech is this many times the noise floor
 ABS_MIN_ENERGY = 0.0015    # below this it is electrical noise, not a voice
 ABS_MAX_ENERGY = 0.020     # never demand more than this, however loud the room
 
+# Whether this machine runs the offline speech models at all.
+#
+# On a church laptop: yes. They are the offline ears, and the safety net when
+# the connection is slow.
+#
+# On a small cloud server: often no. The remote ear does the listening, and
+# the models cost ~1 GB of RAM plus a 239 MB download that a free-tier
+# instance may not have room for. Set EMETAI_LOCAL_EARS=0 and EmetAI runs
+# lean - Gemini ear only, and it says so plainly rather than offering an ear
+# it cannot provide.
+LOCAL_EARS = os.environ.get("EMETAI_LOCAL_EARS", "1").strip() not in ("0", "false", "no")
+
 FW_MODEL_SIZE = "base"  # EN/FR model: "base" fast, "small" more accurate
 RW_MODEL_DIR = os.path.join(os.path.dirname(__file__), "models", "rw-ct2")
 
@@ -171,8 +183,11 @@ def preload_engines():
         except Exception as e:
             print(f"[preload] {lang} unavailable: {e}")
 
-    for lang in ("en", "rw"):
-        threading.Thread(target=_load, args=(lang,), daemon=True).start()
+    if LOCAL_EARS:
+        for lang in ("en", "rw"):
+            threading.Thread(target=_load, args=(lang,), daemon=True).start()
+    else:
+        print("[preload] offline ears disabled (EMETAI_LOCAL_EARS=0)")
 
     # The remote ear has a cold start too, and it is the expensive one — see
     # warm_gemini(). Paid here so the first verse of the first service is as
@@ -573,9 +588,10 @@ async def ws_endpoint(ws: WebSocket):
             # Listen after a restart sit for as long as the model took to come
             # off disk. Warm it in the background; until it is ready the live
             # line is simply quiet.
-            threading.Thread(
-                target=lambda: get_engine(GEMINI_FALLBACK_LANG), daemon=True
-            ).start()
+            if LOCAL_EARS:
+                threading.Thread(
+                    target=lambda: get_engine(GEMINI_FALLBACK_LANG), daemon=True
+                ).start()
         else:
             await loop.run_in_executor(None, get_engine, lang)
     except Exception as e:
@@ -592,6 +608,16 @@ async def ws_endpoint(ws: WebSocket):
     # the next service picks that up. See learning.py for why this matters more
     # than any model choice.
     import learning
+    # A server running lean has no offline model to offer. Say so rather than
+    # accepting audio it can do nothing with.
+    if not LOCAL_EARS and CONFIG[lang][0] != "gemini":
+        await ws.send_text(json.dumps({
+            "type": "error",
+            "message": "This server runs the Auto ear only. "
+                       "Choose the Auto ear to listen.",
+        }))
+        await ws.close(code=4400)
+        return
     uid = payload["uid"]
     hint = learning.vocabulary_hint(uid) if CONFIG[lang][0] == "gemini" else ""
     if CONFIG[lang][0] == "gemini":
@@ -639,7 +665,7 @@ async def ws_endpoint(ws: WebSocket):
             pool = FINAL_POOL if (remote and final) else None
             text = await loop.run_in_executor(
                 pool, transcribe, lang, audio, not final, notes, hint,
-                heard_language in ("", "en", "fr"),
+                LOCAL_EARS and heard_language in ("", "en", "fr"),
             )
             # Repair mishearings this church has already corrected us on. A
             # wrong word that never reaches scripture matching cannot put a

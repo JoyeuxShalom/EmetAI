@@ -1,0 +1,35 @@
+# Caddy gets and renews the certificate itself. Nothing to configure, nothing
+# to remember to do in ninety days.
+#
+# The microphone is why this matters: browsers refuse getUserMedia on an
+# insecure origin, so without a real certificate the Studio loads and simply
+# cannot listen.
+
+{$EMETAI_DOMAIN} {
+	encode zstd gzip
+
+	# The ear is a websocket held open for hours. Caddy upgrades it without
+	# any special configuration, but the timeouts have to allow a sermon:
+	# the defaults would cut a three-hour service.
+	reverse_proxy emetai:8765 {
+		header_up X-Real-IP {remote_host}
+		transport http {
+			read_timeout 4h
+			write_timeout 4h
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

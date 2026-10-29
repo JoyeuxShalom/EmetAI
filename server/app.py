@@ -764,6 +764,15 @@ if os.path.isdir(DIST_DIR):
 
 if __name__ == "__main__":
     served = " + app" if os.path.isdir(DIST_DIR) else ""
-    print(f"EmetAI backend on http://127.0.0.1:8765  (API + AI ear + clipper{served})")
-    uvicorn.run(app, host="127.0.0.1", port=8765,
-                proxy_headers=True, forwarded_allow_ips="127.0.0.1")
+    # A church laptop binds to localhost — nothing outside the machine should
+    # be able to reach it. In a container it must bind to every interface or
+    # the reverse proxy in front of it cannot connect at all, which is the
+    # commonest way a deployed server looks "up" and answers nothing.
+    host = os.environ.get("EMETAI_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    # Trust forwarded headers only from the proxy. Trusting them from anywhere
+    # would let a caller claim any IP they liked, and the rate limiter and the
+    # audit log both believe that field.
+    trusted = os.environ.get("EMETAI_TRUSTED_PROXY", "127.0.0.1").strip()
+    print(f"EmetAI backend on http://{host}:8765  (API + AI ear + clipper{served})")
+    uvicorn.run(app, host=host, port=8765,
+                proxy_headers=True, forwarded_allow_ips=trusted)

@@ -37,3 +37,4 @@ server/bin/
 .idea/
 .DS_Store
 Thumbs.db
+deploy/.env

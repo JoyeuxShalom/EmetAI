@@ -1,0 +1,73 @@
+# EmetAI, hosted. Three containers, one command.
+#
+#   caddy    the only thing the internet can reach. Gets and renews a free
+#            Let's Encrypt certificate on its own, which matters more than it
+#            sounds: a browser will not give a page the microphone unless the
+#            connection is genuinely secure, so without real HTTPS EmetAI
+#            cannot listen at all.
+#   emetai   the application. Never exposed directly - it listens on the
+#            private network only.
+#   db       PostgreSQL. SQLite is right for one church laptop and wrong for
+#            a shared server.
+#
+# Start with:  docker compose --env-file .env up -d --build
+
+name: emetai
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"      # Let's Encrypt validates over 80; also redirects to 443
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # the certificates - losing these means re-issuing
+      - caddy_config:/config
+    environment:
+      EMETAI_DOMAIN: ${EMETAI_DOMAIN}
+    depends_on:
+      - emetai
+
+  emetai:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://emetai:${POSTGRES_PASSWORD}@db:5432/emetai
+      PGSSLMODE: disable          # the database is on the private network
+      EMETAI_HOST: 0.0.0.0        # reachable by caddy, not by the internet
+      EMETAI_TRUSTED_PROXY: "*"   # only caddy can reach this port at all
+      EMETAI_LOCAL_EARS: ${EMETAI_LOCAL_EARS:-0}
+    volumes:
+      # The encryption key for stored API keys, and anything uploaded. Must
+      # survive a rebuild - without the key, every saved key is unreadable.
+      - emetai_data:/app/server/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: emetai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: emetai
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      # emetai must not start before the database can answer, or the first
+      # migration fails and the container restarts in a loop.
+      test: ["CMD-SHELL", "pg_isready -U emetai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  caddy_data:
+  caddy_config:
+  emetai_data:
+  db_data:
