@@ -1,0 +1,105 @@
+{
+    "id": "sample",
+    "name": "Bibiliya Yera (sample)",
+    "language": "rw",
+    "books": [
+      {
+        "nr": 1,
+        "name": "Zaburi",
+        "aliases": ["zab", "psalms", "ps"],
+        "chapters": [
+          {
+            "chapter": 23,
+            "verses": [
+              { "v": 1, "t": "Uwiteka ni we mwungeri wanjye, sinzakena." },
+              { "v": 4, "t": "Nubwo nanyura mu kibaya cy'igicucu cy'urupfu, sinzatinya ikibi, kuko uri kumwe nanjye." }
+            ]
+          },
+          {
+            "chapter": 46,
+            "verses": [
+              { "v": 1, "t": "Imana ni yo buhungiro bwacu n'imbaraga zacu, ifashije cyane mu makuba." }
+            ]
+          }
+        ]
+      },
+      {
+        "nr": 2,
+        "name": "Yesaya",
+        "aliases": ["yes", "isaiah", "isa"],
+        "chapters": [
+          {
+            "chapter": 41,
+            "verses": [
+              { "v": 10, "t": "Ntutinye kuko ndi kumwe nawe, ntiwihebe kuko ndi Imana yawe." }
+            ]
+          }
+        ]
+      },
+      {
+        "nr": 3,
+        "name": "Yeremiya",
+        "aliases": ["yer", "jeremiah", "jer"],
+        "chapters": [
+          {
+            "chapter": 29,
+            "verses": [
+              { "v": 11, "t": "Kuko nzi imigambi mfite ku bwanyu, ni imigambi y'amahoro itari iy'ikibi, kugira ngo mbahe ibyiringiro mu minsi izaza." }
+            ]
+          }
+        ]
+      },
+      {
+        "nr": 4,
+        "name": "Matayo",
+        "aliases": ["mat", "matthew", "mt"],
+        "chapters": [
+          {
+            "chapter": 6,
+            "verses": [
+              { "v": 33, "t": "Ahubwo mubanze mushake ubwami bw'Imana no gukiranuka kwayo, ibyo byose muzabihabwa." }
+            ]
+          },
+          {
+            "chapter": 11,
+            "verses": [
+              { "v": 28, "t": "Nimuze kuri jye mwese abananiwe n'abaremerewe, nanjye nzabaruhura." }
+            ]
+          }
+        ]
+      },
+      {
+        "nr": 5,
+        "name": "Yohana",
+        "aliases": ["yoh", "john", "jn"],
+        "chapters": [
+          {
+            "chapter": 3,
+            "verses": [
+              { "v": 16, "t": "Kuko Imana yakunze abari mu isi cyane, byatumye itanga Umwana wayo w'ikinege, kugira ngo umwizera wese atarimbuka, ahubwo agire ubugingo buhoraho." },
+              { "v": 17, "t": "Kuko Imana itatumye Umwana wayo mu isi ngo acire isi urubanza, ahubwo yamutumye ngo isi ikizwe na we." }
+            ]
+          },
+          {
+            "chapter": 14,
+            "verses": [
+              { "v": 6, "t": "Yesu aramubwira ati: Ni jye nzira n'ukuri n'ubugingo; nta wuza kwa Data atanyuzeho." }
+            ]
+          }
+        ]
+      },
+      {
+        "nr": 6,
+        "name": "Abaroma",
+        "aliases": ["rom", "romans", "abaroma"],
+        "chapters": [
+          {
+            "chapter": 8,
+            "verses": [
+              { "v": 28, "t": "Tuzi yuko ku babakunda Imana, ibintu byose bifatanya gukora icyiza." }
+            ]
+          }
+        ]
+      }
+    ]
+  }

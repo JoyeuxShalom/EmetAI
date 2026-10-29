@@ -1,0 +1,39 @@
+# ── Secrets and real data. Nothing here may ever reach GitHub. ─────────────
+# server/data/secret.key is the AES-256-GCM master key that decrypts every
+# stored API key. emetai.db holds real churches, password hashes and sessions.
+# Publishing either would be unrecoverable — keys can be rotated, a leaked
+# database of a church's accounts cannot be un-leaked.
+server/data/
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# ── Model weights (239 MB). Too large for git, and downloadable. ───────────
+server/models/
+*.bin
+*.onnx
+
+# ── Build output and dependencies ──────────────────────────────────────────
+node_modules/
+dist/
+*.tsbuildinfo
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ── Scratch: recordings, logs, and the throwaway scripts used for testing ──
+*.wav
+*.log
+server/_*.py
+server/bin/
+
+# ── Editor and OS noise ────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

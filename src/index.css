@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #070B14;
+  --color-ink-soft: #0E1524;
+  --color-ink-raise: #151E32;
+  --color-parchment: #F7F3E8;
+  --color-parchment-dim: #C9C6BC;
+  --color-gold: #F5C451;
+  --color-gold-deep: #E0A32E;
+  --color-sky: #8FB4D6;
+  --color-mint: #7FD8B4;
+  --color-rose: #F08E8E;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Space Grotesk", "Inter", system-ui, sans-serif;
+}
+
+:root { color-scheme: dark; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-parchment);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The signature: warm light breaking from above */
+.beam {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(65% 45% at 50% -5%, rgba(245, 196, 81, 0.20), transparent 70%),
+    radial-gradient(45% 32% at 50% 6%, rgba(245, 196, 81, 0.12), transparent 60%);
+}
+
+/* Gentle darkening at the edges — focuses eyes on the Word */
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(125% 105% at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.55));
+}
+
+/* Landing hero glow */
+.aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(50% 38% at 50% 0%, rgba(245, 196, 81, 0.16), transparent 70%),
+    radial-gradient(38% 30% at 82% 18%, rgba(143, 180, 214, 0.10), transparent 65%),
+    radial-gradient(34% 30% at 15% 24%, rgba(127, 216, 180, 0.07), transparent 65%);
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes beamIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.animate-rise { animation: riseIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-beam { animation: beamIn 1.6s ease-out both; }
+.animate-pulse-soft { animation: pulseSoft 1.6s ease-in-out infinite; }
+
+/* ---- The listening orb ---------------------------------------------------
+   Slow, organic motion. Nothing here should draw the eye during a sermon —
+   it exists to be readable at a glance, not to perform.                     */
+
+@keyframes orbBreathe {
+  0%, 100% { opacity: 0.14; transform: scale(0.92); }
+  50%      { opacity: 0.34; transform: scale(1.08); }
+}
+@keyframes orbShimmer {
+  0%, 100% { filter: hue-rotate(0deg) saturate(1); }
+  50%      { filter: hue-rotate(-14deg) saturate(1.25); }
+}
+@keyframes orbSweep {
+  to { transform: rotate(360deg); }
+}
+
+.orb-halo {
+  transform-origin: 50% 50%;
+  animation: orbBreathe 3.4s ease-in-out infinite;
+}
+.orb-halo-delayed { animation-duration: 2.6s; animation-delay: -0.9s; }
+.orb-core {
+  transform-origin: 50% 50%;
+  animation: orbShimmer 5s ease-in-out infinite;
+}
+.orb-sweep {
+  transform-origin: 50% 50%;
+  animation: orbSweep 1.15s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise, .animate-beam, .animate-pulse-soft,
+  .orb-halo, .orb-core, .orb-sweep { animation: none; }
+}

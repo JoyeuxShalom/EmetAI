@@ -1,0 +1,24 @@
+{
+    "comment": "Manual versification overrides. Keys are version ids using the French/Hebrew tradition. Each rule: KJV book:chapter:verse -> that version's book:chapter:verse.",
+    "traditions": {
+      "french": {
+        "appliesTo": ["ls1910", "martin", "by"],
+        "rules": [
+          { "kjv": "32:1:17", "to": "32:2:1" },
+          { "kjv": "32:2", "to": "32:2", "verseDelta": 1 },
+          { "kjv": "29:2:28", "to": "29:3:1" },
+          { "kjv": "29:2:29", "to": "29:3:2" },
+          { "kjv": "29:2:30", "to": "29:3:3" },
+          { "kjv": "29:2:31", "to": "29:3:4" },
+          { "kjv": "29:2:32", "to": "29:3:5" },
+          { "kjv": "29:3", "to": "29:4", "verseDelta": 0 },
+          { "kjv": "39:4:1", "to": "39:3:19" },
+          { "kjv": "39:4:2", "to": "39:3:20" },
+          { "kjv": "39:4:3", "to": "39:3:21" },
+          { "kjv": "39:4:4", "to": "39:3:22" },
+          { "kjv": "39:4:5", "to": "39:3:23" },
+          { "kjv": "39:4:6", "to": "39:3:24" }
+        ]
+      }
+    }
+  }

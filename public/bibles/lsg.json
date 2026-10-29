@@ -1,0 +1,51 @@
+{
+    "id": "lsg",
+    "name": "Louis Segond 1910",
+    "language": "fr",
+    "books": [
+      {
+        "name": "Psaumes",
+        "aliases": ["psaume", "ps", "zaburi", "psalms"],
+        "chapters": [
+          {
+            "chapter": 23,
+            "verses": [
+              { "v": 1, "t": "L'Éternel est mon berger: je ne manquerai de rien." },
+              { "v": 4, "t": "Quand je marche dans la vallée de l'ombre de la mort, je ne crains aucun mal, car tu es avec moi." }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Jean",
+        "aliases": ["jn", "jea", "yohana", "john"],
+        "chapters": [
+          {
+            "chapter": 3,
+            "verses": [
+              { "v": 16, "t": "Car Dieu a tant aimé le monde qu'il a donné son Fils unique, afin que quiconque croit en lui ne périsse point, mais qu'il ait la vie éternelle." },
+              { "v": 17, "t": "Dieu, en effet, n'a pas envoyé son Fils dans le monde pour qu'il juge le monde, mais pour que le monde soit sauvé par lui." }
+            ]
+          },
+          {
+            "chapter": 14,
+            "verses": [
+              { "v": 6, "t": "Jésus lui dit: Je suis le chemin, la vérité, et la vie. Nul ne vient au Père que par moi." }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Matthieu",
+        "aliases": ["mt", "mat", "matayo", "matthew"],
+        "chapters": [
+          {
+            "chapter": 11,
+            "verses": [
+              { "v": 28, "t": "Venez à moi, vous tous qui êtes fatigués et chargés, et je vous donnerai du repos." }
+            ]
+          }
+        ]
+      }
+    ]
+  }
