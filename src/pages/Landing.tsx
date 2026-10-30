@@ -1,50 +1,49 @@
 // EmetAI landing — calm, modern, futuristic. Emet (אמת) = Truth.
+//
+// The job of this page is hard in a specific way: what EmetAI does is
+// invisible in a screenshot. A preacher speaks and a verse appears — that is
+// a sequence, not a picture. So the hero performs it instead of describing
+// it (see LiveDemo), and the prose gets out of the way.
+//
+// Words were cut hard. The previous version explained six features in four
+// lines each; a church deciding in ten seconds reads none of it. Every claim
+// here is either one line or demonstrated on screen.
+//
+// No stock photography, deliberately. The Studio has to work in a hall with
+// poor internet, and a hero that waits on a 400 KB photograph from a CDN is
+// slower than the product it is advertising. The atmosphere is CSS light and
+// the real typography of the real projector.
 
+import LiveDemo from "../components/LiveDemo"
 import Logo, { LogoMark } from "../components/Logo"
 import { useAuth } from "../lib/auth"
+import { useReveal } from "../lib/reveal"
 
-const FEATURES = [
-  {
-    title: "It hears Kinyarwanda",
-    body: "A speech model fine-tuned for Kinyarwanda listens to the preacher — alongside English and French — and understands references like “Yohana 3:16” the moment they are spoken.",
-    icon: "🎙",
-  },
-  {
-    title: "Zero-delay display",
-    body: "The verse appears on the projector the instant it is named. No typing, no searching, no awkward silence while the congregation waits.",
-    icon: "⚡",
-  },
-  {
-    title: "Catches paraphrased verses",
-    body: "Even when the preacher quotes from memory without saying the reference, EmetAI recognizes which verse is being recited and stages it for you.",
-    icon: "✨",
-  },
-  {
-    title: "Verse mapping across versions",
-    body: "Bibiliya Yera, KJV, Louis Segond and more — numbered differently, displayed correctly. EmetAI maps mismatched verse numbers between versions automatically.",
-    icon: "🔀",
-  },
-  {
-    title: "Three languages, side by side",
-    body: "Project the same verse in Kinyarwanda, English and French at once — beautiful, legible typography built for projection screens.",
-    icon: "🌍",
-  },
-  {
-    title: "Sermon clips studio",
-    body: "Paste a YouTube sermon link and EmetAI cuts the most powerful moments into caption-burned, social-ready clips — vertical for Reels, TikTok and Shorts.",
-    icon: "🎬",
-  },
+const PROOF = [
+  { big: "3", small: "languages, at once" },
+  { big: "~2s", small: "from spoken to screen" },
+  { big: "0", small: "typing during the sermon" },
 ]
 
 const STEPS = [
-  { n: "01", t: "Create your church account", b: "Sign up in one minute — every church starts with 14 days free." },
-  { n: "02", t: "Open the Studio and the display", b: "The Studio runs on the operator's laptop; the display window goes to the projector." },
-  { n: "03", t: "Press Listen — and preach", b: "EmetAI listens, finds, and projects every scripture as it is spoken." },
+  { n: "01", t: "Press Listen", b: "One button, at the start of the service." },
+  { n: "02", t: "Preach", b: "Kinyarwanda, English or French. Say it however you say it." },
+  { n: "03", t: "It appears", b: "The verse is on the wall before you finish the sentence." },
+]
+
+const FEATURES = [
+  { icon: "🎙", title: "Hears Kinyarwanda", body: "Not translated — heard, in the language it was spoken." },
+  { icon: "✨", title: "Catches paraphrase", body: "Quote from memory. It still knows the verse." },
+  { icon: "🌍", title: "Three side by side", body: "Bibiliya Yera, KJV, Louis Segond — together." },
+  { icon: "🗣", title: "Follows the interpreter", body: "Preacher and interpreter, told apart automatically." },
+  { icon: "📖", title: "Answers questions", body: "“What does Elohim mean?” — on the screen." },
+  { icon: "🎬", title: "Cuts sermon clips", body: "A YouTube link in, social-ready clips out." },
 ]
 
 export default function Landing() {
   const { user } = useAuth()
   const cta = user ? "#/app" : "#/register"
+  useReveal()
 
   return (
     <main className="h-full overflow-y-auto bg-ink text-parchment">
@@ -52,7 +51,10 @@ export default function Landing() {
       <nav className="sticky top-0 z-20 flex items-center justify-between border-b border-parchment/10 bg-ink/85 px-6 py-3 backdrop-blur">
         <Logo size={30} />
         <div className="flex items-center gap-2">
-          <a href="#pricing" className="hidden rounded-md px-3 py-1.5 font-sans text-sm text-parchment-dim hover:text-parchment sm:block">
+          <a href="#how" className="hidden rounded-md px-3 py-1.5 font-sans text-sm text-parchment-dim transition hover:text-parchment sm:block">
+            How it works
+          </a>
+          <a href="#pricing" className="hidden rounded-md px-3 py-1.5 font-sans text-sm text-parchment-dim transition hover:text-parchment sm:block">
             Pricing
           </a>
           {user ? (
@@ -72,96 +74,119 @@ export default function Landing() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden px-6 pb-24 pt-20 text-center">
-        <div className="aurora" />
-        <div className="relative z-10 mx-auto max-w-3xl">
-          <p className="animate-rise font-sans text-xs uppercase tracking-[0.45em] text-gold/80">
+      {/* ---------------------------------------------------------- Hero -- */}
+      <section className="relative overflow-hidden px-6 pb-20 pt-16">
+        <div className="aurora aurora-drift" />
+
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          <p className="animate-rise font-sans text-[0.65rem] uppercase tracking-[0.45em] text-gold/80">
             Emet · אמת · Truth
           </p>
+
           <h1
-            className="animate-rise mt-5 font-display text-[clamp(2.2rem,6vw,4.2rem)] font-[440] leading-[1.12]"
+            className="animate-rise mt-5 font-display text-[clamp(2.4rem,6.5vw,4.6rem)] font-[440] leading-[1.08]"
             style={{ animationDelay: "0.08s", textWrap: "balance" }}
           >
-            The scripture appears the moment it is <span className="text-gold">spoken</span>.
+            Scripture, the moment it is{" "}
+            <span className="italic text-gold">spoken</span>.
           </h1>
+
           <p
-            className="animate-rise mx-auto mt-6 max-w-xl font-sans text-lg text-parchment-dim"
+            className="animate-rise mx-auto mt-6 max-w-lg font-sans text-lg leading-relaxed text-parchment-dim"
             style={{ animationDelay: "0.16s" }}
           >
-            EmetAI listens to the preacher — in Kinyarwanda, English or French — and
-            projects the exact verse instantly. Built for Rwandan churches.
+            Your projection team stops typing. EmetAI listens and puts the verse
+            on the screen.
           </p>
-          <div className="animate-rise mt-9 flex items-center justify-center gap-3" style={{ animationDelay: "0.24s" }}>
-            <a href={cta} className="rounded-lg bg-gold px-6 py-3 font-sans text-base font-medium text-ink shadow-lg shadow-gold/20 transition hover:bg-gold-deep">
+
+          <div
+            className="animate-rise mt-9 flex flex-wrap items-center justify-center gap-3"
+            style={{ animationDelay: "0.24s" }}
+          >
+            <a href={cta} className="rounded-lg bg-gold px-7 py-3 font-sans text-base font-medium text-ink shadow-lg shadow-gold/20 transition hover:-translate-y-0.5 hover:bg-gold-deep">
               {user ? "Open the Studio →" : "Start 14 days free →"}
             </a>
-            <a href="#how" className="rounded-lg border border-parchment/20 px-6 py-3 font-sans text-base text-parchment-dim transition hover:border-gold/60 hover:text-gold">
-              How it works
+            <a href="#how" className="rounded-lg border border-parchment/20 px-7 py-3 font-sans text-base text-parchment-dim transition hover:border-gold/60 hover:text-gold">
+              See it work
             </a>
           </div>
+
           <p className="animate-rise mt-4 font-sans text-xs text-parchment-dim/50" style={{ animationDelay: "0.3s" }}>
-            No credit card needed · Works offline during the service
+            No card needed · Made in Rwanda
           </p>
         </div>
 
-        {/* Mini projection mock */}
-        <div className="animate-rise relative z-10 mx-auto mt-16 max-w-2xl rounded-2xl border border-parchment/10 bg-ink-soft p-10 shadow-2xl" style={{ animationDelay: "0.36s" }}>
-          <div className="beam" />
-          <div className="relative">
-            <p className="font-sans text-xs uppercase tracking-[0.35em] text-sky/90">Yohana 3:16</p>
-            <div className="mx-auto mt-3 h-px w-14 bg-gold/70" />
-            <p className="mx-auto mt-5 max-w-[30ch] font-display text-2xl leading-snug" style={{ textWrap: "balance" }}>
-              Kuko Imana yakunze abari mu isi cyane, byatumye itanga Umwana wayo w'ikinege…
-            </p>
-            <p className="mt-4 font-sans text-[0.65rem] uppercase tracking-[0.3em] text-parchment-dim/50">
-              Bibiliya Yera
-            </p>
-          </div>
+        {/* The product, working. */}
+        <div className="animate-rise relative z-10 mt-14" style={{ animationDelay: "0.4s" }}>
+          <LiveDemo />
         </div>
       </section>
 
-      {/* Features */}
-      <section className="border-t border-parchment/10 px-6 py-20">
-        <div className="mx-auto max-w-5xl">
-          <h2 className="text-center font-display text-3xl font-[440]">
-            Everything a media team prays for
-          </h2>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="rounded-xl border border-parchment/10 bg-ink-soft p-6 transition hover:border-gold/30">
-                <p className="text-2xl">{f.icon}</p>
-                <h3 className="mt-3 font-sans text-base font-semibold text-parchment">{f.title}</h3>
-                <p className="mt-2 font-sans text-sm leading-relaxed text-parchment-dim">{f.body}</p>
-              </div>
-            ))}
-          </div>
+      {/* --------------------------------------------------------- Proof -- */}
+      <section className="border-t border-parchment/10 px-6 py-14">
+        <div className="reveal mx-auto grid max-w-3xl grid-cols-3 gap-6 text-center">
+          {PROOF.map((p) => (
+            <div key={p.small}>
+              <p className="font-display text-[clamp(1.8rem,4vw,2.8rem)] text-gold">{p.big}</p>
+              <p className="mt-1 font-sans text-xs text-parchment-dim/70">{p.small}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* How it works */}
+      {/* ------------------------------------------------- How it works -- */}
       <section id="how" className="border-t border-parchment/10 px-6 py-20">
         <div className="mx-auto max-w-4xl">
-          <h2 className="text-center font-display text-3xl font-[440]">Three steps to Sunday</h2>
-          <div className="mt-12 grid gap-6 sm:grid-cols-3">
-            {STEPS.map((s) => (
-              <div key={s.n} className="text-center">
-                <p className="font-display text-4xl text-gold/70">{s.n}</p>
-                <h3 className="mt-3 font-sans text-base font-semibold">{s.t}</h3>
-                <p className="mt-2 font-sans text-sm text-parchment-dim">{s.b}</p>
+          <h2 className="reveal text-center font-display text-[clamp(1.8rem,4vw,2.6rem)] font-[440]">
+            Three steps to Sunday
+          </h2>
+          <div className="mt-14 grid gap-10 sm:grid-cols-3">
+            {STEPS.map((s, i) => (
+              <div
+                key={s.n}
+                className="reveal text-center"
+                style={{ transitionDelay: `${i * 0.12}s` }}
+              >
+                <p className="font-display text-5xl text-gold/60">{s.n}</p>
+                <h3 className="mt-3 font-sans text-lg font-semibold">{s.t}</h3>
+                <p className="mt-2 font-sans text-sm leading-relaxed text-parchment-dim">{s.b}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* ------------------------------------------------------ Features -- */}
+      <section className="border-t border-parchment/10 px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="reveal text-center font-display text-[clamp(1.8rem,4vw,2.6rem)] font-[440]">
+            Built for a real service
+          </h2>
+          <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((f, i) => (
+              <div
+                key={f.title}
+                className="reveal group rounded-xl border border-parchment/10 bg-ink-soft p-6 hover:border-gold/40 hover:bg-ink-raise"
+                style={{ transitionDelay: `${(i % 3) * 0.08}s` }}
+              >
+                <p className="text-2xl transition-transform duration-300 group-hover:scale-110">{f.icon}</p>
+                <h3 className="mt-3 font-sans text-base font-semibold text-parchment">{f.title}</h3>
+                <p className="mt-1.5 font-sans text-sm leading-relaxed text-parchment-dim">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------- Pricing -- */}
       <section id="pricing" className="border-t border-parchment/10 px-6 py-20">
         <div className="mx-auto max-w-4xl text-center">
-          <h2 className="font-display text-3xl font-[440]">Simple pricing for every church</h2>
-          <p className="mt-3 font-sans text-parchment-dim">
-            The AI ear is free for ever — every church hears the preacher. Add AI answers and
-            clips when you're ready, monthly or 12.5% cheaper by the year, with MTN Mobile Money.
+          <h2 className="reveal font-display text-[clamp(1.8rem,4vw,2.6rem)] font-[440]">
+            The ear is free. For ever.
+          </h2>
+          <p className="reveal mx-auto mt-3 max-w-xl font-sans text-parchment-dim">
+            Every church hears the preacher. Add AI answers and clips when you are
+            ready — monthly, or 12.5% less by the year, with MTN Mobile Money.
           </p>
           <div className="mt-12 grid gap-5 sm:grid-cols-3">
             {[
@@ -182,7 +207,7 @@ export default function Landing() {
               {
                 name: "Pro",
                 price: "$20",
-                per: "per month · or $210 a year (save 12.5%)",
+                per: "per month · or $210 a year",
                 items: [
                   "Everything in Free",
                   "300 AI answers a month",
@@ -195,7 +220,7 @@ export default function Landing() {
               {
                 name: "Max",
                 price: "$40",
-                per: "per month · or $420 a year (save 12.5%)",
+                per: "per month · or $420 a year",
                 items: [
                   "Everything in Pro",
                   "Unlimited AI answers",
@@ -205,12 +230,15 @@ export default function Landing() {
                 cta: "Choose Max",
                 highlight: false,
               },
-            ].map((p) => (
+            ].map((p, i) => (
               <div
                 key={p.name}
-                className={`rounded-2xl border p-7 text-left ${
-                  p.highlight ? "border-gold/60 bg-gold/5 shadow-lg shadow-gold/10" : "border-parchment/10 bg-ink-soft"
+                className={`reveal rounded-2xl border p-7 text-left ${
+                  p.highlight
+                    ? "border-gold/60 bg-gold/5 shadow-lg shadow-gold/10"
+                    : "border-parchment/10 bg-ink-soft hover:border-gold/30"
                 }`}
+                style={{ transitionDelay: `${i * 0.1}s` }}
               >
                 <p className="font-sans text-sm uppercase tracking-[0.25em] text-parchment-dim">{p.name}</p>
                 <p className="mt-3 font-display text-3xl text-parchment">{p.price}</p>
@@ -236,19 +264,35 @@ export default function Landing() {
               </div>
             ))}
           </div>
-          <p className="mt-6 font-sans text-xs text-parchment-dim/60">
-            Every new church starts with 14 days of Max, free. When a trial or subscription ends
-            you keep the Free plan — a church never loses the AI ear or the scriptures.
+          <p className="reveal mt-6 font-sans text-xs text-parchment-dim/60">
+            Every new church starts with 14 days of Max, free. When a trial ends you
+            keep the Free plan — a church never loses the ear.
           </p>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* --------------------------------------------------- Closing CTA -- */}
+      <section className="relative overflow-hidden border-t border-parchment/10 px-6 py-24 text-center">
+        <div className="aurora aurora-drift" />
+        <div className="reveal relative z-10 mx-auto max-w-2xl">
+          <h2 className="font-display text-[clamp(1.9rem,4.5vw,3rem)] font-[440] leading-tight" style={{ textWrap: "balance" }}>
+            Let your team watch the sermon, not the keyboard.
+          </h2>
+          <a
+            href={cta}
+            className="mt-9 inline-block rounded-lg bg-gold px-8 py-3.5 font-sans text-base font-medium text-ink shadow-lg shadow-gold/20 transition hover:-translate-y-0.5 hover:bg-gold-deep"
+          >
+            {user ? "Open the Studio →" : "Start 14 days free →"}
+          </a>
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------- Footer -- */}
       <footer className="border-t border-parchment/10 px-6 py-10">
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center">
           <LogoMark size={30} />
           <p className="font-sans text-sm text-parchment-dim/70">
-            EmetAI — Ijambo ry'Imana, ku mwanya. · The Word of God, on time.
+            Ijambo ry'Imana, ku mwanya. · The Word of God, on time.
           </p>
           <p className="font-sans text-xs text-parchment-dim/40">
             Emet (אמת) means Truth in Hebrew. Made with love in Rwanda.

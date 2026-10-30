@@ -105,7 +105,71 @@ body {
   animation: orbSweep 1.15s linear infinite;
 }
 
+/* ---- Landing page motion -------------------------------------------------
+   The hero demonstrates the product rather than describing it: a sentence is
+   heard word by word and a verse arrives on the screen. Everything here
+   serves that one idea.                                                     */
+
+/* The glow drifts, so the page breathes instead of sitting still. */
+@keyframes auroraDrift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  50%      { transform: translate3d(-2%, 1.5%, 0) scale(1.06); opacity: 0.85; }
+}
+.aurora-drift { animation: auroraDrift 18s ease-in-out infinite; }
+
+/* The caret that follows the words as they are heard. */
+@keyframes caretBlink { 0%, 45% { opacity: 1; } 55%, 100% { opacity: 0; } }
+.caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--color-gold);
+  animation: caretBlink 1s step-end infinite;
+}
+
+/* A verse arriving on the projector. */
+@keyframes verseArrive {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+.verse-arrive { animation: verseArrive 0.75s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* A line of transcript landing. */
+@keyframes lineIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.line-in { animation: lineIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Revealed on scroll. The class is added by an IntersectionObserver, so
+   nothing moves until it is actually on screen. */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  /* The hover properties are listed here too. A card carrying both .reveal and
+     Tailwind's `transition` utility ends up with one winning, and the loser's
+     properties snap instead of easing - the hover border was jumping. One rule
+     owns all of it. */
+  transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.3s ease,
+              background-color 0.3s ease,
+              box-shadow 0.3s ease;
+}
+.reveal.shown { opacity: 1; transform: none; }
+
+/* The sound bars beside "listening". */
+@keyframes barPulse {
+  0%, 100% { transform: scaleY(0.35); }
+  50%      { transform: scaleY(1); }
+}
+.bar { transform-origin: 50% 100%; animation: barPulse 0.9s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .animate-rise, .animate-beam, .animate-pulse-soft,
-  .orb-halo, .orb-core, .orb-sweep { animation: none; }
+  .orb-halo, .orb-core, .orb-sweep,
+  .aurora-drift, .caret, .verse-arrive, .line-in, .bar { animation: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
 }
