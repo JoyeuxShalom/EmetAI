@@ -143,6 +143,9 @@ EMPTY_RETRY_SECS = 1.5
 # per minute, so a brief pause usually clears; the deadline still caps what
 # the operator actually waits for.
 RATE_LIMIT_PAUSE_SECS = 1.5
+# How long a model that answered 503 is stepped over. Short: an overloaded
+# model is busy, not finished for the day.
+OVERLOADED_PAUSE_SECS = 90.0
 
 # Force a particular Gemini model for transcription, e.g.
 #   EMETAI_EAR_MODEL=gemini-3.7-flash
@@ -230,6 +233,74 @@ def _wav_bytes(audio: np.ndarray) -> bytes:
         w.setframerate(SAMPLE_RATE)
         w.writeframes(pcm.tobytes())
     return buffer.getvalue()
+
+
+# ---- Stretching a free key across a whole service -------------------------
+#
+# The free tier allows 500 requests a day PER MODEL. A 113-minute service costs
+# roughly 1,100 calls even after short utterances are merged, so one service
+# needs two or three times the entire daily allowance of a single model — this
+# is arithmetic, not a limit we are brushing against.
+#
+# But the quota is per model, and there are several interchangeable light
+# models. When one is spent for the day, move to the next. Four of them carry
+# a service that one cannot.
+#
+# This is a way to finish a sermon on a free key, not a substitute for billing:
+# when they are all spent the ear says so plainly rather than pretending.
+# Probed against the live API rather than taken from the model list:
+#   gemini-flash-lite-latest  is an ALIAS for 3.5-flash-lite and shares its
+#                             quota, so it adds nothing but a wasted call
+#   gemini-2.5-flash-lite     404s - it is listed but will not take audio
+# The two full flash models are slower than a lite one but have their own
+# allowances, which is what matters once the lite ones are spent.
+EAR_MODEL_CHAIN = [
+    "gemini-3.5-flash-lite",    # fastest, measured — always first
+    "gemini-3.1-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-3-flash-preview",
+]
+# model -> the unix time its daily quota is expected to reset.
+_exhausted: dict[str, float] = {}
+_chain_lock = threading.Lock()
+
+
+def _available_model(key: str) -> str | None:
+    """The first model in the chain that is not out of quota for today."""
+    now = time.time()
+    with _chain_lock:
+        for model in EAR_MODEL_CHAIN:
+            if _exhausted.get(model, 0.0) <= now:
+                return model
+    return None
+
+
+def _mark_exhausted(model: str, seconds: float) -> None:
+    with _chain_lock:
+        _exhausted[model] = time.time() + max(60.0, seconds)
+    hours = seconds / 3600
+    print(f"[ear] {model} is out of free quota for ~{hours:.1f}h — next model")
+
+
+def _retry_after(error) -> float:
+    """Seconds until this quota resets, from Google's own answer.
+
+    A per-DAY exhaustion comes back with a delay of hours; a per-minute one
+    with seconds. Telling them apart matters: a model that is merely busy
+    should come back into rotation shortly, not be written off until tomorrow.
+    """
+    import json as _json
+    import re as _re
+
+    try:
+        body = _json.loads(error.read().decode("utf-8"))
+    except Exception:
+        return 0.0
+    detail = _json.dumps(body)
+    if "PerDay" not in detail:
+        return 0.0                      # per-minute: a short pause is enough
+    found = _re.search(r'"retryDelay"\s*:\s*"(\d+)s"', detail)
+    return float(found.group(1)) if found else 6 * 3600
 
 
 GEMINI_HOST = "generativelanguage.googleapis.com"
@@ -418,7 +489,10 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
     }
     body = _json.dumps(payload).encode("utf-8")
 
-    for attempt in (1, 2):
+    # One attempt per model in the chain, plus one: a model that is out
+    # of quota for the day must be able to hand on to the next, and with
+    # only two attempts the third and fourth were never reachable.
+    for attempt in range(1, len(EAR_MODEL_CHAIN) + 2):
         # The light model transcribes as well as the large one here — measured
         # on the same clip: identical words, 2.5s against 2.4s — and has a far
         # roomier free allowance, which matters when every utterance is a call.
@@ -444,7 +518,13 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
         if EAR_MODEL_OVERRIDE:
             model = EAR_MODEL_OVERRIDE
         else:
-            model = brain.pick_gemini_lite_model(key)
+            model = _available_model(key)
+            if model is None:
+                raise RuntimeError(
+                    "Today's free Gemini allowance is used up on every model. "
+                    "It resets in a few hours; enabling billing on the Google "
+                    "Cloud project removes the limit for a few cents a service."
+                )
         try:
             data = _gemini_post(
                 f"/v1beta/models/{model}:generateContent",
@@ -455,6 +535,11 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
             )
             parts = data["candidates"][0]["content"]["parts"]
             heard = _json.loads("".join(p.get("text", "") for p in parts))
+            if not isinstance(heard, dict):
+                # One model in the chain answered with a bare list. Treat an
+                # unexpected shape as a failed call and move on rather than
+                # raising an AttributeError three frames later.
+                raise ValueError("unexpected reply shape from " + model)
             lang_heard = str(heard.get("lang", "")).strip()
             # The model that just understood the audio also says whether it
             # was a request. That is worth far more than any pattern we could
@@ -474,14 +559,34 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
             return spoken_text, lang_heard
         except urllib.error.HTTPError as e:
             print(f"[ear] Gemini transcription HTTP {e.code} (attempt {attempt})")
-            if e.code in (429, 500, 502, 503) and attempt == 1:
-                # Retrying a rate limit in the same instant simply hits it
-                # again and spends the retry for nothing. A free-tier limit is
-                # per minute, so a short wait is usually all it takes — and
-                # the deadline above still caps how long the operator waits.
-                if e.code == 429:
+            if e.code == 429:
+                # Is this model finished for the day, or merely busy this
+                # minute? Google says which, and the difference decides
+                # whether to step to the next model or simply wait.
+                resets_in = _retry_after(e)
+                more_models_left = attempt <= len(EAR_MODEL_CHAIN)
+                if resets_in:
+                    _mark_exhausted(model, resets_in)
+                    if more_models_left:
+                        continue        # straight on to the next model
+                elif more_models_left:
                     time.sleep(RATE_LIMIT_PAUSE_SECS)
-                continue
+                    continue
+            if e.code in (400, 404):
+                # The model does not exist, or will not take audio. It is not
+                # coming back - drop it for the life of this process rather
+                # than asking again every utterance.
+                _mark_exhausted(model, 365 * 24 * 3600)
+                print(f"[ear] {model} cannot be used - removed from the chain")
+                if attempt <= len(EAR_MODEL_CHAIN):
+                    continue
+            if e.code in (500, 502, 503):
+                # Overloaded, not spent. Step past it briefly so the chain
+                # moves on instead of asking the same busy model five times,
+                # but let it back in shortly — this is a passing condition.
+                _mark_exhausted(model, OVERLOADED_PAUSE_SECS)
+                if attempt <= len(EAR_MODEL_CHAIN):
+                    continue
             raise
         except Exception as e:
             print(f"[ear] Gemini transcription failed: {e}")
