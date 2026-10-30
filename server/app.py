@@ -230,6 +230,21 @@ def readiness():
     kinyarwanda = ear.CONFIG["rw"][0] in ear._engines
     remote_warm = bool(getattr(brain, "_gemini_lite_model", ""))
 
+    # A server running lean has no offline models and never will. Waiting for
+    # them would leave it reporting "starting up" for ever — which is what the
+    # first deployment did, and the launcher would have waited out its whole
+    # three-minute window on a server that was ready the entire time.
+    if not ear.LOCAL_EARS:
+        return {
+            "ok": True,
+            "ready": True,
+            "listening_ready": True,
+            "models": {"english": False, "kinyarwanda": False},
+            "offline_ears": False,
+            "remote_ear_warm": remote_warm,
+            "detail": "EmetAI is ready.",
+        }
+
     if english and kinyarwanda:
         detail = "EmetAI is ready."
     elif english or kinyarwanda:
@@ -241,6 +256,7 @@ def readiness():
         "ok": True,
         "ready": english and kinyarwanda,
         "listening_ready": english or kinyarwanda,
+        "offline_ears": True,
         "models": {"english": english, "kinyarwanda": kinyarwanda},
         "remote_ear_warm": remote_warm,
         "detail": detail,

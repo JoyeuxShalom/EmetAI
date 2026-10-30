@@ -18,6 +18,7 @@
 #   python deploy/provision.py retry [hours]  keep trying until capacity appears
 #   python deploy/provision.py status         what exists right now
 
+import os
 import sys
 import time
 
@@ -26,9 +27,32 @@ import oci
 NAME = "emetai"
 VCN_CIDR = "10.0.0.0/16"
 SUBNET_CIDR = "10.0.0.0/24"
-SHAPE = "VM.Standard.A1.Flex"
-OCPUS = 1          # a smaller ask is far likelier to find capacity than 4
-MEMORY_GB = 6
+
+# Two free shapes, and they are SEPARATE allowances — using the AMD micro does
+# not consume the ARM one. So there is no reason to sit idle waiting for ARM:
+# deploy on what exists, keep hunting for the better machine in parallel.
+#
+# Measured in Johannesburg: 33 consecutive "Out of host capacity" over nearly
+# three hours. That region has one availability domain, so there is nowhere
+# else to ask.
+#
+#   arm    1 OCPU / 6 GB. A smaller request finds gaps a larger one cannot,
+#          but the pool is frequently empty regardless.
+#   micro  Fixed 1 OCPU / 1 GB, essentially always available. Tight, but
+#          EmetAI runs lean on it — the Gemini ear does the listening and the
+#          offline Whisper models are skipped entirely (EMETAI_LOCAL_EARS=0).
+SHAPES = {
+    "arm": {"shape": "VM.Standard.A1.Flex", "ocpus": 1, "memory": 6, "boot_gb": 50},
+    "micro": {"shape": "VM.Standard.E2.1.Micro", "ocpus": None, "memory": None,
+              "boot_gb": 50},
+}
+WHICH = os.environ.get("EMETAI_SHAPE", "arm").strip() or "arm"
+if WHICH not in SHAPES:
+    raise SystemExit(f"EMETAI_SHAPE must be one of {list(SHAPES)}")
+PICK = SHAPES[WHICH]
+SHAPE = PICK["shape"]
+OCPUS = PICK["ocpus"]
+MEMORY_GB = PICK["memory"]
 IMAGE_OS = "Canonical Ubuntu"
 IMAGE_VERSION = "22.04"
 # The ports a church needs open: SSH for me, HTTP/HTTPS for the Studio. 80 is
@@ -57,8 +81,11 @@ def find(items, name):
     return None
 
 
-def wait_available(get, what):
-    for _ in range(60):
+def wait_available(get, what, tries=150):
+    """Oracle takes one to three minutes to boot an instance. The first
+    version gave up after two, reported failure, and left a perfectly good
+    machine running that it had just created."""
+    for _ in range(tries):
         item = get()
         if item.lifecycle_state == "AVAILABLE":
             return item
@@ -164,10 +191,15 @@ def launch(subnet, ssh_public_key):
         availability_domain=ad,
         display_name=NAME,
         shape=SHAPE,
-        shape_config=oci.core.models.LaunchInstanceShapeConfigDetails(
-            ocpus=OCPUS, memory_in_gbs=MEMORY_GB),
+        # Only Flex shapes take a shape_config. The micro is fixed and rejects
+        # one outright, so it must be omitted rather than left at defaults.
+        shape_config=(
+            oci.core.models.LaunchInstanceShapeConfigDetails(
+                ocpus=OCPUS, memory_in_gbs=MEMORY_GB)
+            if OCPUS else None
+        ),
         source_details=oci.core.models.InstanceSourceViaImageDetails(
-            image_id=image.id, boot_volume_size_in_gbs=50),
+            image_id=image.id, boot_volume_size_in_gbs=PICK["boot_gb"]),
         create_vnic_details=oci.core.models.CreateVnicDetails(
             subnet_id=subnet.id, assign_public_ip=True),
         metadata={"ssh_authorized_keys": ssh_public_key},
@@ -177,7 +209,7 @@ def launch(subnet, ssh_public_key):
 
 def main():
     action = sys.argv[1] if len(sys.argv) > 1 else "status"
-    key_path = __import__("os").path.expanduser("~/.ssh/emetai_oracle.pub")
+    key_path = os.path.expanduser("~/.ssh/emetai_oracle.pub")
     ssh_key = open(key_path).read().strip()
 
     if action == "status":
@@ -204,7 +236,8 @@ def main():
     hours = float(sys.argv[2]) if len(sys.argv) > 2 else 0
     deadline = time.time() + hours * 3600
     attempt = 0
-    print(f"\nLaunching {SHAPE} {OCPUS} OCPU / {MEMORY_GB} GB")
+    size = f"{OCPUS} OCPU / {MEMORY_GB} GB" if OCPUS else "fixed 1 OCPU / 1 GB"
+    print(f"\nLaunching {SHAPE}  {size}")
     while True:
         attempt += 1
         try:
