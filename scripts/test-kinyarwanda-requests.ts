@@ -41,6 +41,35 @@ check("the SAME request in Kinyarwanda is now understood", understood(SPOKEN_RW)
 check("and it is long enough to have failed the old ten-word rule",
   SPOKEN_RW.split(/\s+/).length > 10, SPOKEN_RW.split(/\s+/).length)
 
+console.log("\n— the verb carries its subject prefix —")
+
+// Kinyarwanda puts the subject on the verb, so one stem appears as duhe /
+// uduhe / baduhe / muduhe / tuduhe. The first version of this listed the
+// prefixes it happened to think of and missed "muduhe" — the form a preacher
+// addressing the room actually uses, and the one a real service produced,
+// transcribed perfectly, to no effect at all.
+const PREFIXED = [
+  "Muduhe icyo cyanditswe.",
+  "Tuduhe umurongo wa Zaburi makumyabiri na gatatu",
+  "Baduhe icyo cyandikwa cya Dawidi",
+  "Uduhe igice cya gatatu cy'igitabo cya Yohana",
+  "duhe umurongo uvuga ku kwizera",
+]
+let prefixed = 0
+for (const line of PREFIXED) {
+  if (understood(line)) prefixed++
+  else console.log(`      missed: ${line}`)
+}
+check(`every subject prefix is understood (${prefixed}/${PREFIXED.length})`,
+  prefixed === PREFIXED.length, prefixed)
+
+// The ear mis-heard the same word three ways in one service — cyanditswe,
+// cyandiswe, cyandikwa. Refusing the imperfect spellings would mean
+// understanding the request only when it was heard perfectly, which is
+// exactly when help is least needed.
+check("a near-miss spelling of 'scripture' still counts",
+  understood("Muduhe icyo cyandiswe") && understood("Baduhe icyo cyandikwa"))
+
 console.log("\n— the ways a preacher actually asks —")
 
 const REQUESTS = [

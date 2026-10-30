@@ -508,11 +508,21 @@ const EXPLICIT_REQUEST =
  * instruction, and it contains a giving verb. Pairing the verb with something
  * the Bible actually is keeps the benediction out.
  */
+// Kinyarwanda is agglutinative: the subject prefix rides on the verb, so one
+// stem appears as duhe / uduhe / baduhe / muduhe / tuduhe. The first version of
+// this listed the prefixes it happened to think of and missed "muduhe" — which
+// is the form a preacher addressing the room actually uses, and which a real
+// service produced, perfectly transcribed, to no effect. Allow any short
+// prefix on the stem instead of guessing which ones exist.
 const RW_REQUEST_VERB =
-  /\b(?:ba?duhe|uduhe|duhe|mpa|umpe|tubwire|mbwira|nyereka|unyereke|twereke|erekana|dusome|usome|sobanura|shakisha|fungura|garuka\s+ku)\b/
+  /\b\w{0,3}duhe\b|\b\w{0,3}(?:bwire|ereke|sobanur|somere)\w*\b|\b(?:mpa|umpe|mbwira|nyereka|dusome|usome|sobanura|shakisha|fungura)\b/
 
+// Tolerant of the ear's near-misses on purpose: the same word came back as
+// "cyanditswe", "cyandiswe" and "cyandikwa" in one service, and refusing the
+// last two would mean understanding the request only when it was heard
+// perfectly - which is exactly when help is least needed.
 const RW_SCRIPTURE_WORD =
-  /\b(?:umurongo|imirongo|igice|ibice|cyandikwa|icyanditswe|ibyanditswe|gitabo|igitabo|bibiliya|ijambo|amagambo|zaburi|ivanjiri)\b/
+  /\b(?:i?cyandi\w+|ibyandi\w+|umurongo|imirongo|igice|ibice|i?gitabo|bibiliya|ijambo|amagambo|zaburi|ivanjiri)\b/
 
 /** Markers of preaching TO people rather than instructing a machine. */
 const CONGREGATION =

@@ -128,6 +128,9 @@ GEMINI_LANGUAGES = "Kinyarwanda, English or French"
 # a single utterance is long enough that it should already have been cut.
 GEMINI_MIN_SECS = 0.6
 GEMINI_MAX_SECS = 25.0
+# Above this much speech, an empty transcript is treated as a failed call and
+# retried rather than accepted as silence.
+EMPTY_RETRY_SECS = 1.5
 
 router = APIRouter()
 _engines = {}
@@ -371,7 +374,13 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
         "passage is hard, write your best attempt at it.\n"
         "Write exactly what is said. Do not translate, summarise, correct or "
         "add anything. If nothing is clearly said, return an empty string.\n"
-        'Reply as JSON: {"text": "...", "lang": "rw" | "en" | "fr" | "mixed"}\n'
+        "\nAlso say whether the speaker is ASKING THE PROJECTION SOFTWARE for "
+        "something - a verse, a definition, a change on the screen - as "
+        'opposed to preaching, praying, or talking to the congregation.\n'
+        '"Muduhe icyo cyanditswe" (give us that scripture) is a request; '
+        '"Imana ibaduhe umugisha" (God bless you) is not.\n'
+        'Reply as JSON: {"text": "...", "lang": "rw" | "en" | "fr" | "mixed", '
+        '"request": true | false}\n'
         'Use "mixed" when more than one language is spoken in the recording.'
     )
     payload = {
@@ -406,7 +415,23 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
             )
             parts = data["candidates"][0]["content"]["parts"]
             heard = _json.loads("".join(p.get("text", "") for p in parts))
-            return str(heard.get("text", "")).strip(), str(heard.get("lang", "")).strip()
+            lang_heard = str(heard.get("lang", "")).strip()
+            # The model that just understood the audio also says whether it
+            # was a request. That is worth far more than any pattern we could
+            # write: it works in every language the ear hears, including the
+            # ones nobody has written rules for, and it costs no extra call.
+            if heard.get("request") is True:
+                lang_heard += "|request"
+            spoken_text = str(heard.get("text", "")).strip()
+            # An empty transcript for several seconds of clear speech is a
+            # failure, not an answer. Measured at roughly one call in twenty
+            # once the model was also asked to judge whether the utterance was
+            # a request - rare, but a lost sentence mid-sermon either way, so
+            # it is worth the one retry we already have in hand.
+            if not spoken_text and secs >= EMPTY_RETRY_SECS and attempt == 1:
+                print("[ear] empty transcript for real speech - retrying")
+                continue
+            return spoken_text, lang_heard
         except urllib.error.HTTPError as e:
             print(f"[ear] Gemini transcription HTTP {e.code} (attempt {attempt})")
             if e.code in (429, 500, 502, 503) and attempt == 1:
@@ -673,9 +698,18 @@ async def ws_endpoint(ws: WebSocket):
             if text:
                 text = learning.repair(text, uid)
             spoken = ""
+            asked = False
             for note in notes:
                 if note.startswith("lang:"):
                     spoken = note[5:]
+                    # "rw|request" — the language, plus whether the model
+                    # judged this an instruction rather than preaching. The
+                    # model that just understood the audio is a far better
+                    # judge of that than any pattern we could write, and it
+                    # works in every language the ear hears.
+                    if spoken.endswith("|request"):
+                        spoken = spoken[: -len("|request")]
+                        asked = True
                     # Remember what this room speaks. It decides whether the
                     # English offline model is a useful safety net here or a
                     # source of fluent nonsense — see transcribe().
@@ -690,6 +724,9 @@ async def ws_endpoint(ws: WebSocket):
                     # service this is what lets the Studio tell the preacher's
                     # sentence from the interpreter's repeat of it.
                     "lang": spoken or (CONFIG[lang][1] or lang),
+                    # Did the speaker ask EmetAI for something, in whatever
+                    # language they used? See the prompt above.
+                    "request": asked,
                 }
                 # Who said it. Costs 23–72ms per utterance against a ~1.8s
                 # transcription, and runs on the safety pool so it is never in

@@ -15,7 +15,11 @@ type Callbacks = {
       /** Who the ear thinks said it: "preacher", "interpreter", "speaker 1",
        *  "speaker 2", or "both" when two people spoke over each other and it
        *  refused to guess. Empty until there is enough voice to tell. */
-      role?: string
+      role?: string,
+      /** The ear's own judgement that this was an instruction to EmetAI rather
+       *  than preaching. Works in languages no pattern here covers - which is
+       *  the point: Kinyarwanda grammar cannot be written as a regex. */
+      isRequest?: boolean
     ) => void
     onError: (message: string) => void
     onStatus?: (message: string) => void
@@ -74,7 +78,10 @@ export class LocalEar {
         try {
           const msg = JSON.parse(String(e.data))
           if (msg.type === "final" && msg.text)
-            cb.onTranscript(msg.text, true, msg.lang, msg.overlap ? "both" : msg.role)
+            cb.onTranscript(
+              msg.text, true, msg.lang,
+              msg.overlap ? "both" : msg.role, msg.request === true
+            )
           if (msg.type === "interim" && msg.text)
             cb.onTranscript(msg.text, false, msg.lang)
           if (msg.type === "status" && msg.message) cb.onStatus?.(msg.message)

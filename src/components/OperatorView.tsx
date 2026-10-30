@@ -410,6 +410,9 @@ export default function OperatorView({
   // "interpreter", "speaker 1/2", or "both" when it heard two people at
   // once and refused to guess between them.
   const lastRoleRef = useRef<string>("")
+  // Whether the ear judged the current utterance to be an instruction. Set by
+  // the transport, consumed once when the sentence settles.
+  const lastRequestRef = useRef<boolean>(false)
   // Which transcript line is being corrected, and what the operator has typed.
   const [fixing, setFixing] = useState<{ index: number; text: string } | null>(null)
   const [learned, setLearned] = useState<string | null>(null)
@@ -1258,7 +1261,19 @@ export default function OperatorView({
           // bibles", "somebody give the Lord a shout") name nothing of ours
           // and are left alone. Measured on 40 sentences of real preaching:
           // zero misfires, 13 of 13 real commands caught.
-          if (isFinal && askEnabled && voice.agent && looksLikeInstruction(text)) {
+          // …and the ear's own judgement joins it. The patterns above are
+          // English and French grammar written by hand; Kinyarwanda is
+          // agglutinative and the ear mis-hears, so no list of verbs will ever
+          // cover it. A real service proved that: "Muduhe icyo cyanditswe" was
+          // transcribed perfectly and matched nothing. The model that just
+          // understood the audio knows it was a request - in any language,
+          // for no extra call. The two are a union, so this can only add.
+          const heardAsRequest = lastRequestRef.current
+          lastRequestRef.current = false
+          if (
+            isFinal && askEnabled && voice.agent &&
+            (looksLikeInstruction(text) || heardAsRequest)
+          ) {
             const now = Date.now()
             const sameAsLast = lastAgentAsk.current.text === text.trim()
             const tooSoon = now - lastAgentAsk.current.at < AGENT_MIN_GAP_MS
@@ -1469,12 +1484,19 @@ export default function OperatorView({
     utteranceRef.current = utterance
 
     const callbacks = {
-      onTranscript: (text: string, isFinal: boolean, lang?: string, role?: string) => {
+      onTranscript: (
+        text: string,
+        isFinal: boolean,
+        lang?: string,
+        role?: string,
+        isRequest?: boolean
+      ) => {
         // Remember the language and the speaker before the assembler settles
         // the sentence — by the time onSettled fires the socket message is
         // long gone, and both are needed to attribute the line.
         if (lang) lastLangRef.current = lang
         if (role) lastRoleRef.current = role
+        if (isRequest) lastRequestRef.current = true
         utterance.push(text, isFinal)
       },
       onError: (message: string) => {
