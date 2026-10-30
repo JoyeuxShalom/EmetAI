@@ -1,4 +1,4 @@
-# EmetAI — Ijambo ry'Imana, ku mwanya
+# EmetAI — The scripture in an instant
 
 **Emet (אמת) means Truth in Hebrew.** EmetAI is an AI platform for Rwandan churches:
 it listens to the preacher — in **Kinyarwanda, English or French** — and projects the
