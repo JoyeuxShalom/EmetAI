@@ -34,6 +34,13 @@ REMOTE_MAX_UTTERANCE_SECS = 20.0
 # Interims for the remote ear are decoded locally, so they only look at the
 # newest speech — a shorter tail decodes faster and the live line keeps up.
 REMOTE_INTERIM_TAIL_SECS = 3.0
+# Below this, an utterance waits and goes with the next one. A free-tier key is
+# limited per MINUTE, and a service full of short bursts - "Amen", "Saba, saba,
+# saba" - used to spend one call on each and exhaust the allowance in seconds.
+REMOTE_MIN_SEND_SECS = 2.0
+# ...but it must not wait for ever. After this much quiet, whatever is held
+# goes regardless, so the last words before a pause are never lost.
+PENDING_FLUSH_SECS = 2.5
 # …and rarely. A Whisper pass uses every core it can get, so a live decode
 # every 0.8s starved the event loop and pushed the final — the one that puts
 # scripture on the wall — from 2.7s out to 8.5s. Measured. The live line is a
@@ -726,6 +733,8 @@ async def ws_endpoint(ws: WebSocket):
     import diarize
     diarizer = diarize.Diarizer()
     silence_run = 0.0
+    # A too-short utterance held back to travel with the next one.
+    pending = np.zeros(0, dtype=np.float32)
     heard_speech = False
     since_partial = 0.0
     busy = False
@@ -818,14 +827,28 @@ async def ws_endpoint(ws: WebSocket):
         finally:
             busy = False
 
-    def cut_utterance():
-        nonlocal buffer, preroll, heard_speech, silence_run, since_partial
-        audio = buffer.copy()
+    def cut_utterance(force: bool = False):
+        nonlocal buffer, preroll, heard_speech, silence_run, since_partial, pending
+        audio = np.concatenate([pending, buffer]) if pending.size else buffer.copy()
+        pending = np.zeros(0, dtype=np.float32)
         buffer = np.zeros(0, dtype=np.float32)
         preroll = np.zeros(0, dtype=np.float32)
         heard_speech = False
         silence_run = 0.0
         since_partial = 0.0
+
+        # —— Don't spend a round trip on half a word ——
+        # A service is full of short bursts: "Uragata", "Saba, saba, saba",
+        # "Amen". Each one used to cost its own call to Google, and a free-tier
+        # key is limited per MINUTE, so a lively few seconds exhausted it and
+        # the ear reported itself unavailable for the rest of the service.
+        #
+        # Holding a short burst and sending it with the next one costs nothing
+        # — it arrives in the same final either way — and it also transcribes
+        # better, because two seconds of context beats half a second of it.
+        if remote and not force and audio.size < SAMPLE_RATE * REMOTE_MIN_SEND_SECS:
+            pending = audio
+            return
 
         async def finalize(a=audio):
             while busy:
@@ -859,7 +882,10 @@ async def ws_endpoint(ws: WebSocket):
                 except Exception:
                     continue
                 if ctl.get("type") == "flush" and heard_speech and buffer.size > SAMPLE_RATE * 0.5:
-                    cut_utterance()
+                    # force: a flush means a command was heard and must act
+                    # now. Holding it back to save a call would defeat the
+                    # entire point of the fast path.
+                    cut_utterance(force=True)
                 continue
 
             data = msg.get("bytes")
@@ -936,6 +962,13 @@ async def ws_endpoint(ws: WebSocket):
                 or utter_secs >= max_utterance
             ):
                 cut_utterance()
+
+            # Words held back for company must not wait for ever. Once the room
+            # has been quiet this long, nothing more is coming to join them —
+            # send them alone rather than lose the last phrase before a pause.
+            elif (pending.size and not heard_speech
+                  and silence_run >= PENDING_FLUSH_SECS):
+                cut_utterance(force=True)
 
             # Once the room has gone quiet the utterance is about to be cut, so
             # starting another local decode only burns CPU the final needs.
