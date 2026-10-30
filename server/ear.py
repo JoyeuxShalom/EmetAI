@@ -7,6 +7,7 @@ import concurrent.futures
 import json
 import os
 import threading
+import time
 
 import numpy as np
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
@@ -131,6 +132,10 @@ GEMINI_MAX_SECS = 25.0
 # Above this much speech, an empty transcript is treated as a failed call and
 # retried rather than accepted as silence.
 EMPTY_RETRY_SECS = 1.5
+# How long to wait before retrying a rate-limited call. Free-tier limits are
+# per minute, so a brief pause usually clears; the deadline still caps what
+# the operator actually waits for.
+RATE_LIMIT_PAUSE_SECS = 1.5
 
 # Force a particular Gemini model for transcription, e.g.
 #   EMETAI_EAR_MODEL=gemini-3.7-flash
@@ -417,11 +422,22 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
         # a real service can settle, so the choice is a setting rather than a
         # guess baked into the code. scripts/bakeoff.py is how we will answer
         # it; EMETAI_EAR_MODEL is how we act on the answer without a release.
+        # ⚠ The retry stays on the LIGHT model.
+        #
+        # It used to escalate to the heavy one, and on a free-tier key that is
+        # actively harmful: the heavy model's allowance is a fraction of the
+        # light one's, so the retry reliably returned 429 and the ear fell back
+        # to the offline model. A recorded service showed exactly that - an
+        # empty transcript on a quiet moment, a retry, "Gemini ear unavailable
+        # - using the offline ear", and then English nonsense for the rest of
+        # the service.
+        #
+        # Whatever went wrong on the first call, asking a MORE rate-limited
+        # model is not the way to recover from it.
         if EAR_MODEL_OVERRIDE:
             model = EAR_MODEL_OVERRIDE
         else:
-            model = (brain.pick_gemini_lite_model(key) if attempt == 1
-                     else brain.pick_gemini_model(key))
+            model = brain.pick_gemini_lite_model(key)
         try:
             data = _gemini_post(
                 f"/v1beta/models/{model}:generateContent",
@@ -452,6 +468,12 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
         except urllib.error.HTTPError as e:
             print(f"[ear] Gemini transcription HTTP {e.code} (attempt {attempt})")
             if e.code in (429, 500, 502, 503) and attempt == 1:
+                # Retrying a rate limit in the same instant simply hits it
+                # again and spends the retry for nothing. A free-tier limit is
+                # per minute, so a short wait is usually all it takes — and
+                # the deadline above still caps how long the operator waits.
+                if e.code == 429:
+                    time.sleep(RATE_LIMIT_PAUSE_SECS)
                 continue
             raise
         except Exception as e:
