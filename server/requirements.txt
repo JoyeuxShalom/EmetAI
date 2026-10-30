@@ -23,6 +23,9 @@ psycopg[binary]>=3.1
 # Speech + video (the ear and the sermon clipper)
 faster-whisper>=1.0
 numpy>=1.26
-yt-dlp>=2024.1
+# Keep this CURRENT. YouTube changes its player regularly and an outdated
+# yt-dlp starts returning "HTTP 403 Forbidden" for every link - which looks
+# like the Clips feature being broken. `pip install -U yt-dlp` fixes it.
+yt-dlp>=2026.10
 imageio-ffmpeg>=0.4.9
 opencv-python>=4.9
