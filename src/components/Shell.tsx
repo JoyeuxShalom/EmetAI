@@ -3,6 +3,7 @@
 import Logo from "./Logo"
 import { useAuth, hasActiveSubscription } from "../lib/auth"
 import { useRoute } from "../lib/router"
+import { useUpdateAvailable } from "../lib/version"
 
 const NAV = [
   { to: "#/app", label: "Studio" },
@@ -16,9 +17,22 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const route = useRoute()
   const sub = user?.subscription
   const active = hasActiveSubscription(user)
+  // A tab left open through a deploy keeps running the old code, and a fix
+  // that has shipped looks like a fix that does not work. Never reloads by
+  // itself — a page that refreshes mid-sermon is worse than a stale one.
+  const updateReady = useUpdateAvailable()
 
   return (
     <div className="flex h-full flex-col bg-ink-soft">
+      {updateReady && (
+        <button
+          onClick={() => window.location.reload()}
+          className="shrink-0 bg-gold px-4 py-1.5 text-center font-sans text-xs font-medium text-ink transition hover:bg-gold-deep"
+        >
+          A newer EmetAI is ready — click to reload. Your service keeps running
+          until you do.
+        </button>
+      )}
       <nav className="flex h-12 shrink-0 items-center justify-between border-b border-parchment/10 bg-ink px-4">
         <div className="flex items-center gap-6">
           <a href="#/">
