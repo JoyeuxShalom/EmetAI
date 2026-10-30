@@ -132,6 +132,13 @@ GEMINI_MAX_SECS = 25.0
 # retried rather than accepted as silence.
 EMPTY_RETRY_SECS = 1.5
 
+# Force a particular Gemini model for transcription, e.g.
+#   EMETAI_EAR_MODEL=gemini-3.7-flash
+# Empty means choose automatically (light first, heavy on retry). Exists so a
+# church can try a heavier model on real Kinyarwanda without a code change -
+# see scripts/bakeoff.py.
+EAR_MODEL_OVERRIDE = os.environ.get("EMETAI_EAR_MODEL", "").strip()
+
 router = APIRouter()
 _engines = {}
 # Loading is not thread-safe, and it is now reached from three directions at
@@ -403,8 +410,18 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
         # The light model transcribes as well as the large one here — measured
         # on the same clip: identical words, 2.5s against 2.4s — and has a far
         # roomier free allowance, which matters when every utterance is a call.
-        model = (brain.pick_gemini_lite_model(key) if attempt == 1
-                 else brain.pick_gemini_model(key))
+        #
+        # That measurement was made on ENGLISH, though, and it is the only kind
+        # of audio this machine can produce. Whether the heavier model is worth
+        # its ~1.5s on Kinyarwanda is an open question that only a recording of
+        # a real service can settle, so the choice is a setting rather than a
+        # guess baked into the code. scripts/bakeoff.py is how we will answer
+        # it; EMETAI_EAR_MODEL is how we act on the answer without a release.
+        if EAR_MODEL_OVERRIDE:
+            model = EAR_MODEL_OVERRIDE
+        else:
+            model = (brain.pick_gemini_lite_model(key) if attempt == 1
+                     else brain.pick_gemini_model(key))
         try:
             data = _gemini_post(
                 f"/v1beta/models/{model}:generateContent",
