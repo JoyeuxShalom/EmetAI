@@ -102,12 +102,21 @@ export class LocalEar {
           /* ignore malformed */
         }
       }
+      // onerror fires for BOTH a server that is down and a connection the
+      // server refused, and it carries no detail either way. Saying "not
+      // reachable" was therefore wrong about half the time - an expired
+      // session read as a dead backend. Wait a moment: if the server has
+      // anything to say it arrives as an error message or a close code, and
+      // that is always more accurate than a guess from here.
       ws.onerror = () => {
-        if (!this.stopped) {
+        if (this.stopped) return
+        window.setTimeout(() => {
+          if (this.stopped) return      // a real reason already arrived
           cb.onError(
-            "The EmetAI backend is not reachable. Start it with:  python server/app.py"
+            "Could not reach the EmetAI ear. If you are on this computer, " +
+              "check EmetAI is running; otherwise try signing in again."
           )
-        }
+        }, 400)
       }
       ws.onclose = (e) => {
         if (this.stopped) return

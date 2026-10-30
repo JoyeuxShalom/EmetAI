@@ -583,8 +583,31 @@ def offline_capability(_user=Depends(admin_user)):
 async def ws_endpoint(ws: WebSocket):
     lang = ws.query_params.get("lang", "en")
     token = ws.query_params.get("token", "")
-    payload = verify_token(token) if lang in CONFIG else None
+    # Closing WITHOUT accepting rejects the HTTP handshake, and a rejected
+    # handshake carries no close code to the browser — it just looks like a
+    # dead connection, so the Studio said "the EmetAI backend is not
+    # reachable" when the real cause was a session that had gone idle. Three
+    # separate problems have now presented as that one misleading sentence.
+    #
+    # Accept first, say what actually happened, then close. Accepting an
+    # unauthenticated socket for the length of one error message leaks
+    # nothing — the audio loop is still never reached.
+    if lang not in CONFIG:
+        await ws.accept()
+        await ws.send_text(json.dumps({
+            "type": "error",
+            "message": f"Unknown ear '{lang}'. Choose one from the Ear menu.",
+        }))
+        await ws.close(code=4400)
+        return
+
+    payload = verify_token(token)
     if not payload:
+        await ws.accept()
+        await ws.send_text(json.dumps({
+            "type": "error",
+            "message": "Your session has ended — sign in again to keep listening.",
+        }))
         await ws.close(code=4401)
         return
 
