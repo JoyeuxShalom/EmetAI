@@ -2,6 +2,12 @@
 #   pip install -r requirements.txt
 fastapi>=0.110
 uvicorn>=0.27
+# Uvicorn needs a websocket library to accept an upgrade at all. Without one it
+# answers /api/ear/ws with 404 and logs "No supported WebSocket library
+# detected" - the ear simply does not exist. This was missing for a long time
+# and went unnoticed only because the development machine happened to have it
+# installed for a test harness; the first clean deployment had no ear.
+websockets>=12.0
 pydantic>=2.6
 
 # The AI brain — official Anthropic SDK (streaming answers, retries, timeouts)
