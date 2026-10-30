@@ -27,7 +27,44 @@ type Callbacks = {
     onLevel?: (level: number) => void
   }
   
-  /** Close codes the server uses to refuse a connection outright. Retrying any
+  /** Where the audio comes from.
+ *
+ *  "microphone" — a room. The preacher, through a mic or the laptop's own.
+ *  "computer"   — whatever this machine is PLAYING: a livestreamed service,
+ *                 a recording being reviewed, a service watched on the same
+ *                 laptop that runs EmetAI. The microphone cannot do this job,
+ *                 and not because it is not loud enough: echo cancellation
+ *                 exists precisely to strip out sound the computer is making,
+ *                 so pointing a mic at your own speakers is the one case the
+ *                 browser works hardest to defeat.
+ */
+export type AudioSource = "microphone" | "computer"
+
+/** The computer's own sound, via the screen-share picker.
+ *
+ *  Chrome will not hand over audio without a video track being requested, so
+ *  one is asked for and stopped immediately — nothing is ever recorded or
+ *  sent. All three cleanups are switched OFF: this audio is already clean,
+ *  and "improving" it only removes the preacher.
+ */
+async function captureComputerAudio(): Promise<MediaStream> {
+  const shared = await navigator.mediaDevices.getDisplayMedia({
+    video: true,
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    } as MediaTrackConstraints,
+  })
+  shared.getVideoTracks().forEach((t) => t.stop())   // audio is all we wanted
+  if (!shared.getAudioTracks().length) {
+    shared.getTracks().forEach((t) => t.stop())
+    throw new Error("no-audio-shared")
+  }
+  return shared
+}
+
+/** Close codes the server uses to refuse a connection outright. Retrying any
  *  of these is pointless — nothing about waiting will change the answer. */
 const REFUSED = new Set([4401, 4403])
 
@@ -54,14 +91,29 @@ export class LocalEar {
     private reconnectTimer: number | null = null
     private reconnectAttempts = 0
 
-    async start(lang: "en" | "fr" | "rw" | "auto", cb: Callbacks) {
+    async start(
+      lang: "en" | "fr" | "rw" | "auto",
+      cb: Callbacks,
+      from: AudioSource = "microphone"
+    ) {
       this.stopped = false
       try {
-        this.stream = await navigator.mediaDevices.getUserMedia({
-          audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
-        })
-      } catch {
-        cb.onError("Microphone permission denied — allow it in the browser address bar.")
+        this.stream = from === "computer"
+          ? await captureComputerAudio()
+          : await navigator.mediaDevices.getUserMedia({
+              // Echo cancellation is right for a room and WRONG for a service
+              // playing on this same machine: its whole job is to remove sound
+              // the computer is producing, so EmetAI was deliberately deaf to
+              // its own speakers. That is what "computer" source is for.
+              audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+            })
+      } catch (e) {
+        cb.onError(
+          from === "computer"
+            ? "No sound was shared. Choose a tab or window and tick " +
+              "\"Share tab audio\" (or \"Share system audio\") in the dialog."
+            : "Microphone permission denied — allow it in the browser address bar."
+        )
         return
       }
   

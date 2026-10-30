@@ -16,7 +16,7 @@ import {
   type Verse,
 } from "../data/bible"
 import type { OnlineBible } from "../data/online"
-import { LocalEar } from "../lib/localEar"
+import { type AudioSource, LocalEar } from "../lib/localEar"
 import { CONFIDENT, matchQuote, warmQuoteIndex } from "../lib/quoteMatch"
 import { CommandGate } from "../lib/commandGate"
 import { FAST_COMMAND_MS, SILENCE_MS, UtteranceAssembler } from "../lib/utterance"
@@ -331,6 +331,11 @@ export default function OperatorView({
   const [listening, setListening] = useState(false)
   const [autoMode, setAutoMode] = useState(false)
   const [earLang, setEarLang] = useState<EarLang>("en-US")
+  // Where the sound comes from. A service watched on THIS laptop cannot be
+  // heard through the microphone: the browser's echo cancellation exists to
+  // remove sound the computer is making, so it strips the sermon out. Sharing
+  // the computer's audio instead gives a clean feed with no room noise at all.
+  const [audioSource, setAudioSource] = useState<AudioSource>("microphone")
   const [interimLine, setInterimLine] = useState("")
   const [micError, setMicError] = useState<string | null>(null)
   const [quoteBibles, setQuoteBibles] = useState<Bible[]>([])
@@ -1518,14 +1523,15 @@ export default function OperatorView({
       void ear.start(
         (earLang === "gemini-auto" ? "auto" : earLang.replace("local-", "")) as
           "en" | "fr" | "rw" | "auto",
-        callbacks
+        callbacks,
+        audioSource
       )
 
       // The trigger lane. Only for the remote ear: the offline ears already
       // produce interims of their own, and running two recognisers over one
       // microphone is a cost worth paying only where it buys three seconds.
       let fast: SpeechListener | null = null
-      if (earLang === "gemini-auto") {
+      if (earLang === "gemini-auto" && audioSource === "microphone") {
         try {
           fast = new SpeechListener()
           fast.start(FAST_LANE_LANG, {
@@ -1552,6 +1558,18 @@ export default function OperatorView({
         closeService()
       }
     }
+    // The browser's recogniser opens its OWN microphone and cannot be given a
+    // different stream, so "from this computer" is impossible on these ears.
+    // Say so rather than listening to the room and appearing simply deaf.
+    if (audioSource === "computer") {
+      setMicError(
+        "To listen to this computer, choose “Ear: Auto · RW + EN + FR”. " +
+          "The browser ears can only use the microphone."
+      )
+      setListening(false)
+      return
+    }
+
     // The browser's recogniser keeps its microphone to itself, so the orb
     // follows the flow of speech instead of its loudness.
     const listener = new SpeechListener()
@@ -1564,7 +1582,7 @@ export default function OperatorView({
       gate.current.reset()
       closeService()
     }
-  }, [listening, earLang])
+  }, [listening, earLang, audioSource])
 
   // Online primary: fetch the referenced verse (debounced).
   useEffect(() => {
@@ -1770,6 +1788,23 @@ export default function OperatorView({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Where the sound comes from. A service playing on THIS laptop
+                cannot be heard through the microphone — the browser's echo
+                cancellation removes sound the computer itself is making. */}
+            <select
+              value={audioSource}
+              onChange={(e) => setAudioSource(e.target.value as AudioSource)}
+              disabled={listening}
+              title={
+                audioSource === "computer"
+                  ? "Listening to what this computer is playing"
+                  : "Listening to the room through the microphone"
+              }
+              className="rounded-md border border-parchment/15 bg-ink px-2 py-1.5 font-sans text-sm text-parchment-dim outline-none disabled:opacity-50"
+            >
+              <option value="microphone">🎤 From the room</option>
+              <option value="computer">💻 From this computer</option>
+            </select>
             <select
               value={earLang}
               onChange={(e) => setEarLang(e.target.value as EarLang)}
