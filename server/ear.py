@@ -489,6 +489,10 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
     }
     body = _json.dumps(payload).encode("utf-8")
 
+    # Set when a call came back with no words at all and we are spending a
+    # second round trip to ask again. Only so the outcome can be reported.
+    retried_on_empty = False
+
     # One attempt per model in the chain, plus one: a model that is out
     # of quota for the day must be able to hand on to the next, and with
     # only two attempts the third and fourth were never reachable.
@@ -549,13 +553,29 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
                 lang_heard += "|request"
             spoken_text = str(heard.get("text", "")).strip()
             # An empty transcript for several seconds of clear speech is a
-            # failure, not an answer. Measured at roughly one call in twenty
-            # once the model was also asked to judge whether the utterance was
-            # a request - rare, but a lost sentence mid-sermon either way, so
-            # it is worth the one retry we already have in hand.
+            # failure, not an answer, so it is worth the one retry we already
+            # have in hand.
+            #
+            # How often that happens was guessed here at one call in twenty.
+            # A real 86-minute service said otherwise: 263 lines recorded and
+            # 114 empty transcripts, so very nearly a third of all calls, six
+            # times the guess. That is a third of the service spent waiting an
+            # extra round trip, and on a free key it is also a quarter of the
+            # day's 500 calls spent on answers that were already empty.
+            #
+            # Whether those retries RECOVER anything is still unmeasured,
+            # because only the failures were ever logged. Both outcomes are
+            # logged now, so one service settles it: if the retry rarely finds
+            # words, it should go, and a third of the waiting goes with it.
             if not spoken_text and secs >= EMPTY_RETRY_SECS and attempt == 1:
-                print("[ear] empty transcript for real speech - retrying")
+                print(f"[ear] empty transcript for {secs:.1f}s of speech"
+                      " - retrying")
+                retried_on_empty = True
                 continue
+            if retried_on_empty:
+                print("[ear] retry recovered %s"
+                      % (f"{len(spoken_text)} characters" if spoken_text
+                         else "nothing - that audio was probably not speech"))
             return spoken_text, lang_heard
         except urllib.error.HTTPError as e:
             print(f"[ear] Gemini transcription HTTP {e.code} (attempt {attempt})")
