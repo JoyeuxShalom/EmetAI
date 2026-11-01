@@ -36,11 +36,12 @@ const SCROLLS: Scroll[] = [
 ]
 
 const STEP = 360 / SCROLLS.length
-// The ring is centred behind the headline now, so it has to be wide enough
-// that the readable scrolls pass well clear of the text rather than behind
-// it: the headline column is 768px, and at this radius the scrolls sit about
-// 460px either side of centre, outside it on both flanks.
-const RADIUS = 640
+
+// The radius lives in CSS, as --ring-radius, because it is the one thing that
+// has to change with the width of the screen and the breakpoint belongs with
+// the rest of the layout. On a desktop the ring is wide enough that the
+// scrolls pass either side of a 768px headline; on a phone there is no such
+// room, so it shrinks to a halo behind the words instead.
 
 export default function ScrollRing() {
   return (
@@ -50,7 +51,9 @@ export default function ScrollRing() {
           <article
             key={s.ref}
             className="scroll-ring-panel"
-            style={{ transform: `rotateY(${i * STEP}deg) translateZ(${RADIUS}px)` }}
+            style={{
+              transform: `rotateY(${i * STEP}deg) translateZ(var(--ring-radius))`,
+            }}
           >
             <span className="scroll-ring-tongue">{s.tongue}</span>
             <span className="scroll-ring-ref">{s.ref}</span>

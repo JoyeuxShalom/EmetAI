@@ -177,6 +177,7 @@ body {
    content is a layer above), and the mask below opens a clear column down the
    middle so nothing even approaches the words.                             */
 .scroll-ring-stage {
+  --ring-radius: 640px;
   position: absolute;
   /* Level with the headline, not with the middle of the section — the
      section runs on past the live demo, so a 50% anchor put the ring down
@@ -263,10 +264,140 @@ body {
   color: rgba(240, 234, 220, 0.46);
 }
 
-/* Below the large breakpoint the ring is cropped to a sliver and only costs
-   the phone battery, so it does not render at all. */
+/* On a phone the ring cannot flank the headline — there is no room beside
+   320-odd pixels of text — so it stops trying to. It shrinks to a halo that
+   turns BEHIND the words: smaller radius, smaller scrolls, and a vignette
+   instead of the two-band mask. The headline stays readable because the
+   scrim below pools darkness exactly where the words are, which is also what
+   makes them look like they are coming forward out of the ring. */
+/* Below the desktop breakpoint the ring stops trying to flank the headline
+   and turns BEHIND it as a halo. Flanking was tried at tablet width and does
+   not work: clearing a 600px headline needs a radius that puts most of the
+   ring off the side of the screen, and bringing it in far enough to see ran
+   the scrolls straight through the sub-heading. Behind the words, dimmed,
+   with the dark pool holding the middle, it stays legible and calm. */
 @media (max-width: 1023px) {
-  .scroll-ring-stage { display: none; }
+  .scroll-ring-stage {
+    --ring-radius: 210px;
+    top: 11.5rem;
+    width: 34rem;
+    height: 18rem;
+    margin: -9rem 0 0 -17rem;
+    perspective: 900px;
+    opacity: 0.6;
+    -webkit-mask-image: radial-gradient(56% 66% at 50% 50%, #000 42%, transparent 92%);
+    mask-image: radial-gradient(56% 66% at 50% 50%, #000 42%, transparent 92%);
+  }
+  .scroll-ring-panel {
+    width: 7.5rem;
+    margin: -2.6rem 0 0 -3.75rem;
+    padding: 0.6rem 0.65rem;
+    gap: 0.22rem;
+    border-radius: 0.5rem;
+  }
+  .scroll-ring-tongue { font-size: 0.44rem; letter-spacing: 0.26em; }
+  .scroll-ring-ref { font-size: 0.63rem; }
+  .scroll-ring-line { font-size: 0.5rem; line-height: 1.4; }
+}
+
+/* Phone. No room to pass either side of the text, so the ring turns behind
+   it as a halo — small radius, small scrolls, and the tight pool above keeps
+   the words clean. */
+@media (max-width: 639px) {
+  .scroll-ring-stage {
+    --ring-radius: 158px;
+    top: 13rem;
+    width: 30rem;
+    height: 17rem;
+    margin: -8.5rem 0 0 -15rem;
+    perspective: 720px;
+    opacity: 0.46;
+    -webkit-mask-image: radial-gradient(58% 64% at 50% 50%, #000 40%, transparent 90%);
+    mask-image: radial-gradient(58% 64% at 50% 50%, #000 40%, transparent 90%);
+  }
+  .scroll-ring-panel {
+    width: 7rem;
+    margin: -2.5rem 0 0 -3.5rem;
+    padding: 0.55rem 0.6rem;
+  }
+  .scroll-ring-tongue { font-size: 0.42rem; letter-spacing: 0.24em; }
+  .scroll-ring-ref { font-size: 0.6rem; }
+  .scroll-ring-line { font-size: 0.48rem; line-height: 1.38; }
+}
+
+/* ---- The headline coming forward out of the ring ------------------------
+   Two layers do this. The scrim pools the page's own ink behind the words,
+   so the scrolls fall away into darkness exactly where the text begins and
+   the text reads as nearer than them. The warm wash under it is the ring
+   lighting the back of the words. Both sit between the ring (z 0) and the
+   hero content (z 10) and neither takes a click.                          */
+   The pool is sized in rem, not in per cent. Per cent is measured against the
+   section, and the section grows and shrinks with its contents, so the same
+   rule drew a small pool on a phone and a huge one on a tablet — wide enough
+   there to swallow the ring whole and leave the hero looking empty. In rem
+   the pool is the size of the words it is protecting, which is the thing it
+   actually has to match.                                                   */
+.hero-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(29rem 10.5rem at 50% 13.5rem, rgba(245, 196, 81, 0.09), transparent 72%),
+    radial-gradient(
+      27rem 9.5rem at 50% 13.5rem,
+      rgba(7, 11, 20, 0.95) 0%,
+      rgba(7, 11, 20, 0.88) 44%,
+      rgba(7, 11, 20, 0.55) 70%,
+      transparent 90%
+    );
+}
+
+/* Tablet: the headline is narrower, so the pool is too — and the ring is
+   widened to match in the block below, so the scrolls still clear the text. */
+@media (max-width: 1023px) {
+  .hero-scrim {
+    background:
+      radial-gradient(12rem 7.5rem at 50% 11.5rem, rgba(245, 196, 81, 0.10), transparent 74%),
+      radial-gradient(
+        11rem 7rem at 50% 11.5rem,
+        rgba(7, 11, 20, 0.96) 0%,
+        rgba(7, 11, 20, 0.9) 46%,
+        rgba(7, 11, 20, 0.58) 72%,
+        transparent 92%
+      );
+  }
+}
+
+/* Phone: three lines of headline in a narrow column. The ring cannot clear
+   it at all here, so it turns behind the words and the pool is drawn tight
+   around them — small enough that the ring still reads as a halo either
+   side, strong enough that nothing shows through the letters. */
+@media (max-width: 639px) {
+  .hero-scrim {
+    background:
+      radial-gradient(10rem 8.5rem at 50% 13rem, rgba(245, 196, 81, 0.11), transparent 74%),
+      radial-gradient(
+        9rem 8rem at 50% 13rem,
+        rgba(7, 11, 20, 0.97) 0%,
+        rgba(7, 11, 20, 0.93) 48%,
+        rgba(7, 11, 20, 0.6) 74%,
+        transparent 94%
+      );
+  }
+}
+
+/* The headline arrives by coming TOWARDS the reader — up out of the ring
+   rather than up off the floor, which is what every other element does. */
+@keyframes emergeIn {
+  from { opacity: 0; transform: scale(0.9); filter: blur(10px); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+.animate-emerge {
+  animation: emergeIn 1.15s cubic-bezier(0.19, 1, 0.22, 1) both;
+  /* Lifts the letterforms off the scrolls behind them. */
+  text-shadow: 0 2px 26px rgba(7, 11, 20, 0.95), 0 0 70px rgba(7, 11, 20, 0.8);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -276,4 +407,6 @@ body {
   .reveal { opacity: 1; transform: none; transition: none; }
   /* The ring keeps its shape, it simply stops turning. */
   .scroll-ring { animation: none; transform: rotateX(-9deg) rotateY(-18deg); }
+  /* The headline is simply there, at full size and sharp. */
+  .animate-emerge { animation: none; }
 }

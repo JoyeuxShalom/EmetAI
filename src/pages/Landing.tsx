@@ -88,6 +88,9 @@ export default function Landing() {
         <div className="aurora aurora-drift" />
         {/* Scripture turning past, in all three tongues the ear hears. */}
         <ScrollRing />
+        {/* Pools the page's own ink between the ring and the words, so the
+            scrolls fall away behind them and the headline reads as nearer. */}
+        <div className="hero-scrim" />
 
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <p className="animate-rise font-sans text-[0.65rem] uppercase tracking-[0.45em] text-gold/80">
@@ -95,7 +98,7 @@ export default function Landing() {
           </p>
 
           <h1
-            className="animate-rise mt-5 font-display text-[clamp(2.4rem,6.5vw,4.6rem)] font-[440] leading-[1.08]"
+            className="animate-emerge mt-5 font-display text-[clamp(2.4rem,6.5vw,4.6rem)] font-[440] leading-[1.08]"
             style={{ animationDelay: "0.08s", textWrap: "balance" }}
           >
             Scripture, the moment it is{" "}
