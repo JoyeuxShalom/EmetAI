@@ -76,6 +76,39 @@ def is_configured() -> bool:
     return bool(api_key())
 
 
+def sender_problem(provider_name: str, value: str) -> str | None:
+    """Why this sender address cannot work with this provider, if it cannot.
+
+    onboarding@resend.dev is Resend's own shared sender. Through Resend it
+    works, because Resend is authorised to send as its own domain. Through
+    anyone else it is guaranteed to fail, and to fail in the worst way: the
+    provider accepts the message, reports it as sent, and every receiving
+    server on earth then refuses it, because resend.dev publishes
+
+        v=DMARC1; p=reject; pct=100          reject anything unauthenticated
+        v=spf1 include:_spf.google.com -all  hard fail for non-Google senders
+
+    A real install lost an evening to this -- five test messages, each shown
+    as "Sent" in the provider's dashboard and each rejected on delivery, with
+    nothing in any inbox and no explanation anywhere. Catch it where the
+    address is set instead.
+    """
+    address = split_sender(value)[1].lower()
+    if not address or "@" not in address:
+        return "That does not look like an email address."
+    domain = address.rsplit("@", 1)[1]
+    if domain == "resend.dev" and provider_name != "resend":
+        return (
+            f"{PROVIDERS[provider_name]['label']} cannot send as "
+            f"{address}. That is Resend's own address, and resend.dev tells "
+            "every mail server to reject anything Resend did not send — so "
+            "the message is accepted, reported as sent, and then refused on "
+            "delivery. Use the address you validated with "
+            f"{PROVIDERS[provider_name]['label']} instead."
+        )
+    return None
+
+
 def sender() -> str:
     return db.get_setting(db.handle, FROM_SETTING, "") or DEFAULT_FROM
 

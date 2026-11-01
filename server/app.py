@@ -533,6 +533,12 @@ def set_email_key(body: EmailKeyBody, request: Request, admin=Depends(admin_user
     # message and has to use the address the administrator just chose.
     sender = body.fromAddress.strip()
     if sender:
+        # Refuse an address that cannot possibly work with this provider,
+        # rather than letting it be saved and discovered through five test
+        # messages that all report success and none of which arrive.
+        bad = mailer.sender_problem(name, sender)
+        if bad:
+            raise HTTPException(400, bad)
         db.set_setting(con, mailer.FROM_SETTING, sender[:300])
 
     message = None
@@ -594,6 +600,11 @@ class TestEmailBody(BaseModel):
 
 @app.post("/api/admin/email/test")
 def send_test_email(body: TestEmailBody, admin=Depends(admin_user)):
+    # An address already stored before this check existed still has to be
+    # caught, or the test keeps reporting success and arriving nowhere.
+    bad = mailer.sender_problem(mailer.provider(), mailer.sender())
+    if bad:
+        raise HTTPException(400, bad)
     sent, detail = mailer.send(
         body.to.strip(),
         "EmetAI email is working",
