@@ -75,9 +75,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                   ? sub && sub.daysLeft <= 5
                     ? "border-gold/50 text-gold"
                     : "border-mint/40 text-mint"
-                  : "border-rose/50 text-rose"
+                  : "border-parchment/20 text-parchment-dim"
               }`}
-              title="Subscription status"
+              title={
+                active
+                  ? "Subscription status"
+                  : "Your plan — the AI ear is included for ever"
+              }
             >
               {user.role === "admin"
                 ? "Admin"
@@ -85,7 +89,13 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                   ? "Assistant"
                   : active && sub
                     ? `${sub.label} · ${sub.daysLeft}d left`
-                    : "Expired"}
+                    : // No subscription is not a lapsed account. The server
+                      // puts a church with no plan on the free tier and keeps
+                      // the ear switched on there, deliberately -- "a church
+                      // never loses the Word itself". Calling that "Expired"
+                      // in red told a church on the free plan, correctly
+                      // signed in and able to project, that it was shut out.
+                      user.tierLabel}
             </a>
           )}
           <span className="hidden font-sans text-xs text-parchment-dim/70 sm:block">

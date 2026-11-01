@@ -227,7 +227,12 @@ export default function Account() {
                   <p className="mt-1 font-sans text-sm text-parchment-dim">
                     {active && sub
                       ? `Renew by ${fmtDate(sub.expiresAt)} (${sub.daysLeft} ${sub.daysLeft === 1 ? "day" : "days"} left)`
-                      : "Manual scripture display is yours at no cost. Add AI whenever you're ready."}
+                      : // The free tier carries the ear and the voice
+                        // commands -- TIERS says so, and the server enforces
+                        // that. This line used to offer "manual scripture
+                        // display" and invite the church to "add AI", which
+                        // undersold the free plan by the whole product.
+                        "The AI ear and “Emet” voice commands are yours at no cost, for ever. Paid plans add AI answers and sermon clips."}
                   </p>
                 </>
               )}
@@ -282,7 +287,9 @@ export default function Account() {
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="font-sans text-sm font-medium text-parchment">
-                      {active ? "Change or extend your plan" : "Add AI to your services"}
+                      {active
+                        ? "Change or extend your plan"
+                        : "Add AI answers and sermon clips"}
                     </p>
                     {/* Monthly / yearly switch */}
                     <div className="flex rounded-lg border border-parchment/15 p-0.5">

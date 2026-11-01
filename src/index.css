@@ -167,9 +167,97 @@ body {
 }
 .bar { transform-origin: 50% 100%; animation: barPulse 0.9s ease-in-out infinite; }
 
+/* ---- The turning cylinder of scripture beside the hero -------------------
+   One animated transform on the parent; the twelve panels are placed once and
+   never touched again, so the whole thing is a single GPU layer. It sits
+   behind the headline and is cropped by the section, which is what makes it
+   read as something passing through the page rather than a widget on it.   */
+.scroll-ring-stage {
+  position: absolute;
+  /* Level with the headline, not with the middle of the section — the
+     section runs on past the live demo, so a 50% anchor put the ring down
+     beside the demo where it competed with the one thing that must be read. */
+  top: 19rem;
+  /* Deliberately past the right edge: the ring is cropped, so it reads as
+     continuing beyond the page instead of sitting in a box. */
+  right: -16rem;
+  width: 44rem;
+  height: 44rem;
+  margin-top: -22rem;
+  perspective: 1400px;
+  pointer-events: none;
+  z-index: 0;
+  /* Fades out towards the text so the headline never fights it. */
+  -webkit-mask-image: radial-gradient(74% 74% at 56% 50%, #000 50%, transparent 90%);
+  mask-image: radial-gradient(74% 74% at 56% 50%, #000 50%, transparent 90%);
+}
+
+@keyframes ringTurn {
+  from { transform: rotateX(-9deg) rotateY(0deg); }
+  to   { transform: rotateX(-9deg) rotateY(360deg); }
+}
+
+.scroll-ring {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: ringTurn 64s linear infinite;
+}
+
+.scroll-ring-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10.5rem;
+  margin: -3.4rem 0 0 -5.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgba(245, 196, 81, 0.22);
+  border-radius: 0.6rem;
+  background: linear-gradient(
+    160deg,
+    rgba(245, 196, 81, 0.09),
+    rgba(14, 18, 27, 0.72) 65%
+  );
+  box-shadow: 0 0 28px rgba(245, 196, 81, 0.07);
+  /* The far side of the cylinder stays visible, so it reads as a ring you can
+     see through rather than a carousel with a hidden back. */
+  backface-visibility: visible;
+}
+
+.scroll-ring-tongue {
+  font-family: var(--font-sans, system-ui), sans-serif;
+  font-size: 0.5rem;
+  letter-spacing: 0.3em;
+  color: rgba(245, 196, 81, 0.75);
+}
+
+.scroll-ring-ref {
+  font-family: var(--font-display, Georgia), serif;
+  font-size: 0.78rem;
+  color: rgba(240, 234, 220, 0.92);
+}
+
+.scroll-ring-line {
+  font-family: var(--font-sans, system-ui), sans-serif;
+  font-size: 0.6rem;
+  line-height: 1.45;
+  color: rgba(240, 234, 220, 0.46);
+}
+
+/* Below the large breakpoint the ring is cropped to a sliver and only costs
+   the phone battery, so it does not render at all. */
+@media (max-width: 1023px) {
+  .scroll-ring-stage { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-rise, .animate-beam, .animate-pulse-soft,
   .orb-halo, .orb-core, .orb-sweep,
   .aurora-drift, .caret, .verse-arrive, .line-in, .bar { animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
+  /* The ring keeps its shape, it simply stops turning. */
+  .scroll-ring { animation: none; transform: rotateX(-9deg) rotateY(-18deg); }
 }

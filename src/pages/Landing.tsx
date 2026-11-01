@@ -14,8 +14,17 @@
 // slower than the product it is advertising. The atmosphere is CSS light and
 // the real typography of the real projector.
 
+import {
+  IconAnswers,
+  IconClips,
+  IconHears,
+  IconInterpreter,
+  IconParaphrase,
+  IconThreeUp,
+} from "../components/FeatureIcons"
 import LiveDemo from "../components/LiveDemo"
 import Logo, { LogoMark } from "../components/Logo"
+import ScrollRing from "../components/ScrollRing"
 import { useAuth } from "../lib/auth"
 import { useReveal } from "../lib/reveal"
 
@@ -32,12 +41,12 @@ const STEPS = [
 ]
 
 const FEATURES = [
-  { icon: "🎙", title: "Hears Kinyarwanda", body: "Not translated — heard, in the language it was spoken." },
-  { icon: "✨", title: "Catches paraphrase", body: "Quote from memory. It still knows the verse." },
-  { icon: "🌍", title: "Three side by side", body: "Bibiliya Yera, KJV, Louis Segond — together." },
-  { icon: "🗣", title: "Follows the interpreter", body: "Preacher and interpreter, told apart automatically." },
-  { icon: "📖", title: "Answers questions", body: "“What does Elohim mean?” — on the screen." },
-  { icon: "🎬", title: "Cuts sermon clips", body: "A YouTube link in, social-ready clips out." },
+  { Icon: IconHears, title: "Hears Kinyarwanda", body: "Not translated — heard, in the language it was spoken." },
+  { Icon: IconParaphrase, title: "Catches paraphrase", body: "Quote from memory. It still knows the verse." },
+  { Icon: IconThreeUp, title: "Three side by side", body: "Bibiliya Yera, KJV, Louis Segond — together." },
+  { Icon: IconInterpreter, title: "Follows the interpreter", body: "Preacher and interpreter, told apart automatically." },
+  { Icon: IconAnswers, title: "Answers questions", body: "“What does Elohim mean?” — on the screen." },
+  { Icon: IconClips, title: "Cuts sermon clips", body: "A YouTube link in, social-ready clips out." },
 ]
 
 export default function Landing() {
@@ -75,8 +84,10 @@ export default function Landing() {
       </nav>
 
       {/* ---------------------------------------------------------- Hero -- */}
-      <section className="relative overflow-hidden px-6 pb-20 pt-16">
+      <section className="relative overflow-hidden px-6 pb-28 pt-28">
         <div className="aurora aurora-drift" />
+        {/* Scripture turning past, in all three tongues the ear hears. */}
+        <ScrollRing />
 
         <div className="relative z-10 mx-auto max-w-3xl text-center">
           <p className="animate-rise font-sans text-[0.65rem] uppercase tracking-[0.45em] text-gold/80">
@@ -117,7 +128,7 @@ export default function Landing() {
         </div>
 
         {/* The product, working. */}
-        <div className="animate-rise relative z-10 mt-14" style={{ animationDelay: "0.4s" }}>
+        <div className="animate-rise relative z-10 mt-20" style={{ animationDelay: "0.4s" }}>
           <LiveDemo />
         </div>
       </section>
@@ -169,7 +180,7 @@ export default function Landing() {
                 className="reveal group rounded-xl border border-parchment/10 bg-ink-soft p-6 hover:border-gold/40 hover:bg-ink-raise"
                 style={{ transitionDelay: `${(i % 3) * 0.08}s` }}
               >
-                <p className="text-2xl transition-transform duration-300 group-hover:scale-110">{f.icon}</p>
+                <f.Icon className="h-8 w-8 text-parchment-dim transition-all duration-300 group-hover:scale-110 group-hover:text-parchment" />
                 <h3 className="mt-3 font-sans text-base font-semibold text-parchment">{f.title}</h3>
                 <p className="mt-1.5 font-sans text-sm leading-relaxed text-parchment-dim">{f.body}</p>
               </div>
@@ -292,7 +303,7 @@ export default function Landing() {
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center">
           <LogoMark size={30} />
           <p className="font-sans text-sm text-parchment-dim/70">
-            Ijambo ry'Imana, ku mwanya. · The Word of God, on time.
+            The Word of God, on time.
           </p>
           <p className="font-sans text-xs text-parchment-dim/40">
             Emet (אמת) means Truth in Hebrew. Made with love in Rwanda.
