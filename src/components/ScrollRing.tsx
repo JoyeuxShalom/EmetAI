@@ -1,4 +1,4 @@
-// A slowly turning cylinder of scripture, stood on its edge beside the hero.
+// A slowly turning ring of scripture, tilted so the hero sits inside it.
 //
 // It is decoration with a job. What EmetAI does is hear one sentence and find
 // it in three Bibles at once, and that is hard to photograph. A ring of real
@@ -12,6 +12,24 @@
 // animated property on a parent element, the GPU does the work, and it costs
 // the hall's internet nothing. The Studio has to run on poor connections and
 // the page that advertises it should embarrass itself less, not more.
+//
+// ── Why every scroll is rendered twice ──────────────────────────────────
+// The ring is tilted towards the reader, so you look down INTO it: the near
+// wall you see from outside, the far wall you see from inside. A panel has
+// one printed face, and the back of it paints every word mirrored — which is
+// exactly the fault that showed "Philippians 4:13" reversed in the hero.
+//
+// Hiding backfaces fixes the mirroring but then half the ring vanishes and
+// the ellipse breaks into an arc. So each scroll is placed twice at the same
+// point in space, once facing out and once facing in:
+//
+//     out   rotateY(θ)        translateZ( R)     normal points away from axis
+//     in    rotateY(θ + 180°) translateZ(−R)     same point, normal reversed
+//
+// Both land on (R·sinθ, 0, R·cosθ). With backfaces hidden, exactly one of
+// each pair is ever drawn — the outward one while the scroll is on the near
+// side, the inward one while it is on the far side. The ring is whole, and
+// every word reads the right way round from wherever you catch it.
 
 type Scroll = { ref: string; line: string; tongue: string }
 
@@ -43,23 +61,38 @@ const STEP = 360 / SCROLLS.length
 // scrolls pass either side of a 768px headline; on a phone there is no such
 // room, so it shrinks to a halo behind the words instead.
 
+function Scroll({ scroll, transform }: { scroll: Scroll; transform: string }) {
+  return (
+    <article className="scroll-ring-panel" style={{ transform }}>
+      <span className="scroll-ring-tongue">{scroll.tongue}</span>
+      <span className="scroll-ring-ref">{scroll.ref}</span>
+      <span className="scroll-ring-line">{scroll.line}</span>
+    </article>
+  )
+}
+
 export default function ScrollRing() {
   return (
     <div className="scroll-ring-stage" aria-hidden="true">
       <div className="scroll-ring">
-        {SCROLLS.map((s, i) => (
-          <article
-            key={s.ref}
-            className="scroll-ring-panel"
-            style={{
-              transform: `rotateY(${i * STEP}deg) translateZ(var(--ring-radius))`,
-            }}
-          >
-            <span className="scroll-ring-tongue">{s.tongue}</span>
-            <span className="scroll-ring-ref">{s.ref}</span>
-            <span className="scroll-ring-line">{s.line}</span>
-          </article>
-        ))}
+        {SCROLLS.map((s, i) => {
+          const angle = i * STEP
+          return [
+            <Scroll
+              key={`${s.ref}-out`}
+              scroll={s}
+              transform={`rotateY(${angle}deg) translateZ(var(--ring-radius))`}
+            />,
+            <Scroll
+              key={`${s.ref}-in`}
+              scroll={s}
+              transform={
+                `rotateY(${angle + 180}deg) ` +
+                `translateZ(calc(-1 * var(--ring-radius)))`
+              }
+            />,
+          ]
+        })}
       </div>
     </div>
   )

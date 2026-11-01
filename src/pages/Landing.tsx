@@ -84,7 +84,7 @@ export default function Landing() {
       </nav>
 
       {/* ---------------------------------------------------------- Hero -- */}
-      <section className="relative overflow-hidden px-6 pb-28 pt-28">
+      <section className="relative overflow-hidden px-6 pb-28 pt-36">
         <div className="aurora aurora-drift" />
         {/* Scripture turning past, in all three tongues the ear hears. */}
         <ScrollRing />
@@ -106,7 +106,7 @@ export default function Landing() {
           </h1>
 
           <p
-            className="animate-rise mx-auto mt-6 max-w-lg font-sans text-lg leading-relaxed text-parchment-dim"
+            className="animate-rise mx-auto mt-36 max-w-lg font-sans text-lg leading-relaxed text-parchment-dim sm:mt-6"
             style={{ animationDelay: "0.16s" }}
           >
             Your projection team stops typing. EmetAI listens and puts the verse
@@ -131,7 +131,7 @@ export default function Landing() {
         </div>
 
         {/* The product, working. */}
-        <div className="animate-rise relative z-10 mt-20" style={{ animationDelay: "0.4s" }}>
+        <div className="animate-rise relative z-10 mt-56" style={{ animationDelay: "0.4s" }}>
           <LiveDemo />
         </div>
       </section>

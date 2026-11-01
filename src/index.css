@@ -182,32 +182,45 @@ body {
   /* Level with the headline, not with the middle of the section — the
      section runs on past the live demo, so a 50% anchor put the ring down
      beside the demo where it competed with the one thing that must be read. */
-  top: 15.5rem;
+  top: 21.5rem;
   left: 50%;
   width: 100rem;
-  height: 30rem;
-  margin: -15rem 0 0 -50rem;
-  perspective: 1600px;
+  height: 56rem;
+  margin: -28rem 0 0 -50rem;
+  /* Deep, deliberately. A short perspective swells the near wall of the ring
+     and shrinks the far one, so the ellipse comes out lopsided and the
+     bottom arc lands far below where the geometry says it should. Pushing
+     the camera back keeps the two arcs close to the same size and the
+     ellipse close to symmetrical, which is what makes it read as a ring
+     rather than a funnel. */
+  perspective: 2600px;
   pointer-events: none;
   z-index: 0;
-  /* Two readable bands, one either flank, with a clear column between them
-     for the headline and a soft fade at both outer edges so the ring leaves
-     the page rather than stopping at it. */
+  /* No column needs clearing down the middle any more. Tilted into an
+     ellipse the ring is only ever on its own rim, so the middle is empty by
+     construction and the hero simply stands in it — which is why this is a
+     plain vignette now and not the two-band mask it replaced. It softens
+     the left and right extremes, where the scrolls are edge-on anyway, so
+     the ring fades out instead of stopping at the window. */
   -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0%, #000 11%, #000 23%, transparent 33%,
-    transparent 67%, #000 77%, #000 89%, transparent 100%
-  );
+    to right, transparent 0%, #000 14%, #000 86%, transparent 100%);
   mask-image: linear-gradient(
-    to right,
-    transparent 0%, #000 11%, #000 23%, transparent 33%,
-    transparent 67%, #000 77%, #000 89%, transparent 100%
-  );
+    to right, transparent 0%, #000 14%, #000 86%, transparent 100%);
 }
 
+/* The tilt is what turns a band into a bowl. At 9 degrees the ring was almost
+   edge-on and read as a horizontal strip passing behind the words; at 28 it
+   opens into an ellipse you look down into, and the whole hero — headline,
+   sentence and buttons — stands inside it. The ellipse is 2R wide and
+   2R·sin(28°) tall, so a little over a third as tall as it is wide.
+
+   Negative, not positive: it decides which half of the ring comes towards
+   you. Negative brings the near wall DOWN to the bottom of the ellipse, so
+   the reader looks into the bowl from above. Positive tips it the other way
+   and you find yourself underneath it, looking up. */
 @keyframes ringTurn {
-  from { transform: rotateX(-9deg) rotateY(0deg); }
-  to   { transform: rotateX(-9deg) rotateY(360deg); }
+  from { transform: rotateX(-28deg) rotateY(0deg); }
+  to   { transform: rotateX(-28deg) rotateY(360deg); }
 }
 
 .scroll-ring {
@@ -270,27 +283,23 @@ body {
    instead of the two-band mask. The headline stays readable because the
    scrim below pools darkness exactly where the words are, which is also what
    makes them look like they are coming forward out of the ring. */
-/* Below the desktop breakpoint the ring stops trying to flank the headline
-   and turns BEHIND it as a halo. Flanking was tried at tablet width and does
-   not work: clearing a 600px headline needs a radius that puts most of the
-   ring off the side of the screen, and bringing it in far enough to see ran
-   the scrolls straight through the sub-heading. Behind the words, dimmed,
-   with the dark pool holding the middle, it stays legible and calm. */
+/* Tablet. Same ellipse, smaller. The ring is deliberately WIDER than the
+   screen here and is cropped at both sides — shrinking it to fit would drop
+   it below the height of the text it is supposed to enclose, and a ring the
+   words stick out of is worse than one that runs off the edge. */
 @media (max-width: 1023px) {
   .scroll-ring-stage {
-    --ring-radius: 210px;
-    top: 11.5rem;
-    width: 34rem;
-    height: 18rem;
-    margin: -9rem 0 0 -17rem;
-    perspective: 900px;
-    opacity: 0.6;
-    -webkit-mask-image: radial-gradient(56% 66% at 50% 50%, #000 42%, transparent 92%);
-    mask-image: radial-gradient(56% 66% at 50% 50%, #000 42%, transparent 92%);
+    --ring-radius: 520px;
+    top: 21rem;
+    width: 70rem;
+    height: 42rem;
+    margin: -21rem 0 0 -35rem;
+    perspective: 2200px;
+    opacity: 0.9;
   }
   .scroll-ring-panel {
-    width: 7.5rem;
-    margin: -2.6rem 0 0 -3.75rem;
+    width: 8.5rem;
+    margin: -2.8rem 0 0 -4.25rem;
     padding: 0.6rem 0.65rem;
     gap: 0.22rem;
     border-radius: 0.5rem;
@@ -300,20 +309,21 @@ body {
   .scroll-ring-line { font-size: 0.5rem; line-height: 1.4; }
 }
 
-/* Phone. No room to pass either side of the text, so the ring turns behind
-   it as a halo — small radius, small scrolls, and the tight pool above keeps
-   the words clean. */
+/* Phone. The ellipse cannot hold the whole hero — three lines of headline,
+   three of sentence and two stacked buttons are far taller than any ring
+   that fits a 375px screen — so it encloses the HEADLINE and the sentence
+   and the buttons sit below it. It is wider than the phone and cropped at
+   both sides, for the same reason as the tablet: a ring small enough to fit
+   edge to edge is too short to enclose anything. */
 @media (max-width: 639px) {
   .scroll-ring-stage {
-    --ring-radius: 158px;
-    top: 13rem;
-    width: 30rem;
-    height: 17rem;
-    margin: -8.5rem 0 0 -15rem;
-    perspective: 720px;
-    opacity: 0.46;
-    -webkit-mask-image: radial-gradient(58% 64% at 50% 50%, #000 40%, transparent 90%);
-    mask-image: radial-gradient(58% 64% at 50% 50%, #000 40%, transparent 90%);
+    --ring-radius: 300px;
+    top: 12.5rem;
+    width: 40rem;
+    height: 26rem;
+    margin: -13rem 0 0 -20rem;
+    perspective: 1500px;
+    opacity: 0.8;
   }
   .scroll-ring-panel {
     width: 7rem;
@@ -343,13 +353,13 @@ body {
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(29rem 10.5rem at 50% 13.5rem, rgba(245, 196, 81, 0.09), transparent 72%),
+    radial-gradient(28rem 12rem at 50% 21.5rem, rgba(245, 196, 81, 0.10), transparent 74%),
     radial-gradient(
-      27rem 9.5rem at 50% 13.5rem,
-      rgba(7, 11, 20, 0.95) 0%,
-      rgba(7, 11, 20, 0.88) 44%,
-      rgba(7, 11, 20, 0.55) 70%,
-      transparent 90%
+      26rem 11rem at 50% 21.5rem,
+      rgba(7, 11, 20, 0.92) 0%,
+      rgba(7, 11, 20, 0.82) 46%,
+      rgba(7, 11, 20, 0.48) 72%,
+      transparent 92%
     );
 }
 
@@ -358,9 +368,9 @@ body {
 @media (max-width: 1023px) {
   .hero-scrim {
     background:
-      radial-gradient(12rem 7.5rem at 50% 11.5rem, rgba(245, 196, 81, 0.10), transparent 74%),
+      radial-gradient(20rem 11rem at 50% 21rem, rgba(245, 196, 81, 0.10), transparent 74%),
       radial-gradient(
-        11rem 7rem at 50% 11.5rem,
+        18rem 10rem at 50% 21rem,
         rgba(7, 11, 20, 0.96) 0%,
         rgba(7, 11, 20, 0.9) 46%,
         rgba(7, 11, 20, 0.58) 72%,
@@ -376,9 +386,9 @@ body {
 @media (max-width: 639px) {
   .hero-scrim {
     background:
-      radial-gradient(10rem 8.5rem at 50% 13rem, rgba(245, 196, 81, 0.11), transparent 74%),
+      radial-gradient(10rem 7rem at 50% 12.5rem, rgba(245, 196, 81, 0.11), transparent 74%),
       radial-gradient(
-        9rem 8rem at 50% 13rem,
+        9rem 6rem at 50% 12.5rem,
         rgba(7, 11, 20, 0.97) 0%,
         rgba(7, 11, 20, 0.93) 48%,
         rgba(7, 11, 20, 0.6) 74%,
