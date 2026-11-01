@@ -742,12 +742,28 @@ export function EmailPanel() {
           />
           <button
             onClick={() => void test()}
-            disabled={!testTo.trim()}
+            // A test sends from the SAVED sender, not the one in the box. An
+            // address typed but not saved therefore tests the old one and
+            // quietly proves nothing -- which is exactly how a live install
+            // came to test Resend's own onboarding@resend.dev through Brevo
+            // and conclude that email was broken.
+            disabled={!testTo.trim() || senderChanged}
+            title={
+              senderChanged
+                ? "Save the sender address first — a test uses the saved one"
+                : undefined
+            }
             className="rounded-md border border-parchment/20 px-3 py-1.5 font-sans text-xs text-parchment-dim transition hover:border-gold/60 hover:text-gold disabled:opacity-30"
           >
             Send test
           </button>
         </div>
+      )}
+      {senderChanged && (
+        <p className="mt-2 font-sans text-xs text-gold/80">
+          The sender address has been changed but not saved — press Save
+          sender. A test always sends from the saved address.
+        </p>
       )}
 
       {msg && <p className="mt-3 font-sans text-sm text-mint">{msg}</p>}
