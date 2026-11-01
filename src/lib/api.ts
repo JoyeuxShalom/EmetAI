@@ -547,14 +547,21 @@ export const api = {
         configured: boolean
       }[]
     }>("GET", "/api/admin/email/status"),
-  setEmailKey: (key: string, fromAddress: string, provider: string) =>
+  /** `clear` disconnects the provider. Saving with an empty key and
+   *  clear=false keeps the stored key and updates only the sender. */
+  setEmailKey: (
+    key: string,
+    fromAddress: string,
+    provider: string,
+    clear = false
+  ) =>
     request<{
       ok: boolean
       configured: boolean
       provider: string
       warning: string | null
       message: string | null
-    }>("POST", "/api/admin/email/key", { key, fromAddress, provider }),
+    }>("POST", "/api/admin/email/key", { key, fromAddress, provider, clear }),
   sendTestEmail: (to: string) =>
     request<{ ok: boolean }>("POST", "/api/admin/email/test", { to }),
 

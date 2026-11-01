@@ -573,6 +573,11 @@ export function EmailPanel() {
   }, [reload])
 
   const spec = status?.providers.find((p) => p.id === chosen)
+  // A sender address the administrator has edited but not yet saved. The
+  // sender is written by the same call that writes the key, so without this
+  // the only way to correct an address was to paste a fresh key — and
+  // providers show a key once.
+  const senderChanged = from.trim() !== (status?.from ?? "").trim()
 
   async function save() {
     setMsg(null)
@@ -668,16 +673,22 @@ export function EmailPanel() {
         />
         <button
           onClick={() => void save()}
-          disabled={!key.trim() || saving}
+          disabled={(!key.trim() && !senderChanged) || saving}
           className="rounded-md bg-gold px-3 py-1.5 font-sans text-xs font-medium text-ink transition hover:bg-gold-deep disabled:opacity-30"
         >
-          {saving ? "Sending test…" : "Save key"}
+          {saving
+            ? key.trim()
+              ? "Sending test…"
+              : "Saving…"
+            : key.trim()
+              ? "Save key"
+              : "Save sender"}
         </button>
         {spec?.configured && (
           <button
             onClick={() => {
               setKey("")
-              void api.setEmailKey("", from, chosen).then(reload)
+              void api.setEmailKey("", from, chosen, true).then(reload)
             }}
             className="rounded-md border border-rose/40 px-3 py-1.5 font-sans text-xs text-rose transition hover:bg-rose/10"
           >

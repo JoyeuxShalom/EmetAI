@@ -497,6 +497,13 @@ class EmailKeyBody(BaseModel):
     key: str = Field(default="", max_length=2000)
     fromAddress: str = Field(default="", max_length=300)
     provider: str = Field(default="", max_length=20)
+    # Disconnecting is now said out loud rather than implied by an empty key
+    # field. It used to be implied, and that made changing the sender address
+    # alone impossible: the sender is saved by this same call, so submitting
+    # it without re-typing the key silently deleted the key. Providers show an
+    # API key exactly once, so "silently deleted" meant "go and make a new
+    # one at the provider" — for a typo in an address.
+    clear: bool = Field(default=False)
 
 
 @app.post("/api/admin/email/key")
@@ -559,12 +566,25 @@ def set_email_key(body: EmailKeyBody, request: Request, admin=Depends(admin_user
                 f"“{detail}” Check the sender address, then use Send test again."
             )
 
-    db.set_secret(con, spec["key_setting"], key)
+    # Only three things can happen to the stored key: it is replaced, it is
+    # deliberately cleared, or it is left exactly as it was. Saving a sender
+    # address on its own is the third, and must never be the second.
+    if body.clear:
+        db.set_secret(con, spec["key_setting"], "")
+        what = "cleared"
+    elif key:
+        db.set_secret(con, spec["key_setting"], key)
+        what = "set"
+    else:
+        what = "sender only"
     db.set_setting(con, mailer.PROVIDER_SETTING, name)
     db.audit(admin, "settings.email_key", name,
-             ("set" if key else "cleared") + (" (send failed)" if warning else ""),
+             what + (" (send failed)" if warning else ""),
              security.client_ip(request))
-    return {"ok": True, "configured": bool(key), "provider": name,
+    # Whether a key is stored now, not whether one was typed in this request —
+    # a sender-only save leaves the existing key in place and must still
+    # report the account as configured.
+    return {"ok": True, "configured": bool(mailer.api_key(name)), "provider": name,
             "warning": warning, "message": message}
 
 
