@@ -42,6 +42,34 @@ const MASS_COUNT = 8
 // threshold, offer the verse instead of forcing it on the congregation.
 export const CONFIDENT = 0.62
 
+// How many of the spoken words must appear CONSECUTIVELY in the verse before
+// a middling score is believed.
+//
+// Measured on a real 86-minute service: 20 of 229 lines produced a verse and
+// exactly one was right. The scoring is bag-of-words, so a sentence sharing
+// scattered common words with a verse scores the same as a genuine quote —
+// "What have you done that has failed?" landed on Ezekiel 12:22 at 47%, while
+// "Go and be as wise as serpents" landed on Matthew 10:16 at 48%. The score
+// cannot tell them apart. Word ORDER can: a real quote carries a run of the
+// verse's own words in the verse's own order.
+// Two, not three, and it is Kinyarwanda that decides that. The language
+// agglutinates, so the word boundaries themselves move when a verse is
+// reworded — "uwiteka ni WE MWUNGERI wanjye" against "uwiteka ni UMWUNGERI
+// wanjye" is the same clause carrying a different number of words. A run of
+// three consecutive words is close to unreachable here even in near-verbatim
+// recitation. Measured on the five known-good matches and the four known-bad:
+//
+//   genuine  Psalm 23:1 run 2   Phil 4:13 run 2   Matt 11:28 run 2
+//            John 3:16  run 4   Matt 10:16 run 3
+//   false    all four           run 0
+//
+// The gap is between 0 and 2, not between 2 and 3.
+const MIN_QUOTE_RUN = 2
+// A paraphrase genuinely may share no run at all — "catches paraphrased
+// verses" is a feature, not an accident — so a scattered match is not
+// refused, only held to a much higher bar.
+const SCATTERED_SCORE = 0.58
+
 const indexCache = new Map<string, Index>()
 
 function buildIndex(bible: Bible): Index {
@@ -209,6 +237,14 @@ export function matchQuote(
   })
 
   if (bestVi < 0) return null
+
+  // Does the winner carry a run of the verse's words, in the verse's order?
+  // Only the winner is checked, so this costs one pass over one verse.
+  if (bestScore < SCATTERED_SCORE
+      && longestRun(tokens, idx.verses[bestVi].norm) < MIN_QUOTE_RUN) {
+    return null
+  }
+
   const margin = runnerUp > 0 ? bestScore / runnerUp : Infinity
   return {
     verse: idx.verses[bestVi],
@@ -218,6 +254,37 @@ export function matchQuote(
     // another is a guess, and a guess belongs in Preview, not on the wall.
     confident: bestScore >= CONFIDENT && margin >= REQUIRED_MARGIN,
   }
+}
+
+/** The longest stretch of spoken words that appears, in order and unbroken,
+ *  inside the verse — compared by STEM, the same way the index matches, so an
+ *  inflected retelling still counts. Comparing literal spelling instead finds
+ *  nothing: "nshobozwa byose" and "nshobora byose" are the same phrase.
+ *
+ *  Only ever called on the winning verse, so this costs one short pass. */
+function longestRun(tokens: string[], verseNorm: string): number {
+  const verseKeys = verseNorm
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => new Set(keysFor(w)))
+  const queryKeys = tokens.map((w) => keysFor(w))
+
+  let best = 0
+  for (let i = 0; i < queryKeys.length; i++) {
+    for (let j = 0; j < verseKeys.length; j++) {
+      let run = 0
+      while (
+        i + run < queryKeys.length &&
+        j + run < verseKeys.length &&
+        queryKeys[i + run].some((k) => verseKeys[j + run].has(k))
+      ) {
+        run += 1
+      }
+      if (run > best) best = run
+      if (best >= MIN_QUOTE_RUN) return best   // enough; stop looking
+    }
+  }
+  return best
 }
 
 /** Warm the index in the background so the first quote of the service isn't slow. */

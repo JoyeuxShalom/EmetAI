@@ -429,7 +429,12 @@ export default function OperatorView({
     action: string,
     result = "",
     score = 0,
-    lang = ""
+    // The language the ear last reported, the same way the speaker comes from
+    // lastRoleRef. Left to the caller this was never passed, and every line of
+    // a 265-line service was filed with no language at all — which is exactly
+    // the column the learning layer needs to tell a Kinyarwanda mishearing
+    // from an English one.
+    lang = lastLangRef.current
   ) {
     const id = serviceRef.current
     if (!id || !heard.trim()) return
@@ -2056,7 +2061,7 @@ export default function OperatorView({
                     <span
                       title={
                         line.role === "both"
-                          ? "Two people spoke at once — Emet will not guess which"
+                          ? "This line holds both voices — Emet will not guess which"
                           : `Emet attributes this to the ${line.role}`
                       }
                       className={`mt-0.5 shrink-0 rounded px-1.5 py-px font-sans text-[10px] uppercase tracking-wider ${
