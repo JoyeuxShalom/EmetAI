@@ -179,26 +179,40 @@ def register(body: RegisterBody, request: Request):
         "email": email,
         "challenge": security.issue_challenge(uid, "verify"),
         "emailSent": sent,
-        "notice": None if sent else _delivery_notice(detail),
+        "notice": None if sent else _code_not_sent(detail),
     }
 
 
+def _code_not_sent(detail: str) -> str:
+    """The notice for a code that never left the building, with its lead-in.
+    _delivery_notice carries only the reason, because the sign-in path has a
+    lead-in of its own and two of them read like a stammer."""
+    return "We could not email your code. " + _delivery_notice(detail)
+
+
 def _delivery_notice(detail: str) -> str:
-    """Explain a failed delivery without ever leaving the person stranded — the
-    code is always printed in the server window as well."""
+    """Explain a failed delivery without ever leaving the person stranded.
+
+    Whoever reads this may be a church that found EmetAI ten seconds ago, not
+    the person who runs the server. These lines used to answer the operator —
+    "the code was printed in the server window", "add a Resend key in Admin →
+    Email" — which tells a visiting church nothing it can act on and hands a
+    stranger our internal arrangements. The operator already has the detail:
+    the code and the provider's own error go to the server log, and Admin →
+    Email shows the status. So these say what it means for the person reading
+    and what happens next.
+    """
     if detail == "email-not-configured":
-        return ("Email delivery is not connected yet, so the code was printed in the server "
-                "window. Ask the administrator to add a Resend key in Admin → Email.")
+        return ("This EmetAI server has not finished connecting its email yet — ask "
+                "whoever set it up to connect email, then try again.")
     if "only send testing emails" in detail:
-        return ("Email is connected, but Resend's shared sender may only write to the address "
-                "that owns the Resend account. Verify your own domain at resend.com/domains and "
-                "set the sender to it. Meanwhile the code is printed in the server window.")
-    if detail.startswith("resend-"):
-        reason = detail.split(":", 1)[1].strip() if ":" in detail else detail
-        return (f"The email could not be sent — {reason[:160]} The code is printed in the "
-                "server window so you can still sign in.")
-    return ("We could not send the email just now. The code is printed in the server window, "
-            "and you can ask for another in a moment.")
+        return ("This server's email is still in testing and can only write to its "
+                "owner's own address — ask whoever set it up to verify a sender "
+                "address it may send from.")
+    reason = detail.split(":", 1)[1].strip() if ":" in detail else ""
+    if reason:
+        return f"The mail provider refused it — {reason[:160]}"
+    return "Ask for another code in a moment."
 
 
 class VerifyBody(BaseModel):
@@ -297,7 +311,7 @@ def login(body: LoginBody, request: Request):
             "email": email,
             "challenge": security.issue_challenge(user["id"], "verify"),
             "emailSent": sent,
-            "notice": None if sent else _delivery_notice(detail),
+            "notice": None if sent else _code_not_sent(detail),
         }
 
     # No second factor yet? Then the password is not enough to get in, but it
@@ -514,7 +528,7 @@ def resend_code(body: ResendBody):
         sent, detail = mailer.send_verify_code(user["email"], user["name"], code)
     else:
         sent, detail = mailer.send_login_code(user["email"], user["name"], code)
-    return {"ok": True, "emailSent": sent, "notice": None if sent else _delivery_notice(detail)}
+    return {"ok": True, "emailSent": sent, "notice": None if sent else _code_not_sent(detail)}
 
 
 def _issue_session(user, request: Request, remember: bool, warn: str | None = None) -> dict:
@@ -829,7 +843,7 @@ def create_assistant(body: AssistantBody, request: Request, admin=Depends(admin_
         "emailSent": sent,
         # Shown once in the UI so the admin can pass it on if email is not set up.
         "temporaryPassword": None if sent else temp,
-        "notice": None if sent else _delivery_notice(detail),
+        "notice": None if sent else _code_not_sent(detail),
     }
 
 

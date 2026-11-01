@@ -341,7 +341,16 @@ finally:
 check("an undeliverable code does NOT sign anyone in", "token" not in out)
 check("the sign-in still stops at the second factor", out.get("requires2fa") is True)
 check("and says so plainly", "could not be emailed" in (out.get("notice") or ""))
-check("the real reason is named", "resend.com/domains" in (out.get("notice") or ""))
+# The reason still has to be named -- a bare "something went wrong" leaves the
+# person guessing. It is named in words a church can act on now, rather than by
+# sending them to resend.com/domains, which this assertion used to require: the
+# person reading may be a visiting church, not whoever runs the server, and our
+# provider's dashboard is no business of theirs.
+_notice = (out.get("notice") or "").lower()
+check("the real reason is named", "still in testing" in _notice
+      and "sender address" in _notice)
+check("and it is not internal plumbing", "resend" not in _notice
+      and "admin →" not in _notice)
 check("the recovery code is offered", "recovery code" in (out.get("notice") or "").lower())
 check("the failed delivery is audited",
       int(db.handle.execute("SELECT COUNT(*) c FROM audit_log WHERE action='auth.2fa_undelivered'")
