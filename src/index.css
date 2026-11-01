@@ -167,29 +167,41 @@ body {
 }
 .bar { transform-origin: 50% 100%; animation: barPulse 0.9s ease-in-out infinite; }
 
-/* ---- The turning cylinder of scripture beside the hero -------------------
-   One animated transform on the parent; the twelve panels are placed once and
-   never touched again, so the whole thing is a single GPU layer. It sits
-   behind the headline and is cropped by the section, which is what makes it
-   read as something passing through the page rather than a widget on it.   */
+/* ---- The turning cylinder of scripture, around the headline --------------
+   One animated transform on the parent; the fifteen panels are placed once
+   and never touched again, so the whole thing is a single GPU layer.
+
+   The ring is centred on the headline and wide enough to pass either side of
+   it, so the words sit inside the cylinder rather than beside it. Two things
+   keep that readable: the panels never paint over the text (the hero's own
+   content is a layer above), and the mask below opens a clear column down the
+   middle so nothing even approaches the words.                             */
 .scroll-ring-stage {
   position: absolute;
   /* Level with the headline, not with the middle of the section — the
      section runs on past the live demo, so a 50% anchor put the ring down
      beside the demo where it competed with the one thing that must be read. */
-  top: 19rem;
-  /* Deliberately past the right edge: the ring is cropped, so it reads as
-     continuing beyond the page instead of sitting in a box. */
-  right: -16rem;
-  width: 44rem;
-  height: 44rem;
-  margin-top: -22rem;
-  perspective: 1400px;
+  top: 15.5rem;
+  left: 50%;
+  width: 100rem;
+  height: 30rem;
+  margin: -15rem 0 0 -50rem;
+  perspective: 1600px;
   pointer-events: none;
   z-index: 0;
-  /* Fades out towards the text so the headline never fights it. */
-  -webkit-mask-image: radial-gradient(74% 74% at 56% 50%, #000 50%, transparent 90%);
-  mask-image: radial-gradient(74% 74% at 56% 50%, #000 50%, transparent 90%);
+  /* Two readable bands, one either flank, with a clear column between them
+     for the headline and a soft fade at both outer edges so the ring leaves
+     the page rather than stopping at it. */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%, #000 11%, #000 23%, transparent 33%,
+    transparent 67%, #000 77%, #000 89%, transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%, #000 11%, #000 23%, transparent 33%,
+    transparent 67%, #000 77%, #000 89%, transparent 100%
+  );
 }
 
 @keyframes ringTurn {
@@ -208,8 +220,8 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 10.5rem;
-  margin: -3.4rem 0 0 -5.25rem;
+  width: 11.5rem;
+  margin: -3.4rem 0 0 -5.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -222,9 +234,13 @@ body {
     rgba(14, 18, 27, 0.72) 65%
   );
   box-shadow: 0 0 28px rgba(245, 196, 81, 0.07);
-  /* The far side of the cylinder stays visible, so it reads as a ring you can
-     see through rather than a carousel with a hidden back. */
-  backface-visibility: visible;
+  /* The far side of the cylinder is hidden, and this is not a style choice.
+     Showing it meant looking at the BACK of those panels, which paints every
+     word mirrored — "Philippians 4:13" reversed, in the hero, as the first
+     thing a church sees. A see-through ring was not worth backwards
+     scripture. Each panel now disappears as it turns past edge-on, which
+     happens out in the faded margin of the mask where nothing pops. */
+  backface-visibility: hidden;
 }
 
 .scroll-ring-tongue {

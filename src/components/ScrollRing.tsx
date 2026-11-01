@@ -30,12 +30,17 @@ const SCROLLS: Scroll[] = [
   { ref: "Abafilipi 4:13", line: "Nshobozwa byose na Kristo", tongue: "RW" },
   { ref: "Philippians 4:13", line: "I can do all things through Christ", tongue: "EN" },
   { ref: "Philippiens 4:13", line: "Je puis tout par celui qui me fortifie", tongue: "FR" },
+  { ref: "Yesaya 40:31", line: "Bazaguruka n’amababa nk’aya kagoma", tongue: "RW" },
+  { ref: "Isaiah 40:31", line: "They shall mount up with wings as eagles", tongue: "EN" },
+  { ref: "Ésaïe 40:31", line: "Ils prennent leur vol comme les aigles", tongue: "FR" },
 ]
 
 const STEP = 360 / SCROLLS.length
-// Far enough apart that the scrolls never intersect: twelve panels of about
-// 168px need a circumference of ~2016px, so a radius of ~321px.
-const RADIUS = 320
+// The ring is centred behind the headline now, so it has to be wide enough
+// that the readable scrolls pass well clear of the text rather than behind
+// it: the headline column is 768px, and at this radius the scrolls sit about
+// 460px either side of centre, outside it on both flanks.
+const RADIUS = 640
 
 export default function ScrollRing() {
   return (
