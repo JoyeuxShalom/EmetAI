@@ -70,6 +70,20 @@ ROLE_MIN_TURNS = 3
 # more of the talking — i.e. the first voice was clearly not the sermon.
 ROLE_TALK_OVERRIDE = 1.5
 
+# Measured, not guessed. Pitch spread relative to the utterance's own pitch:
+#
+#   one voice, short sentence    0.37
+#   one voice, LONG sentence     0.25   <- long speech is NARROWER, not wider
+#   two voices summed            1.09
+#   two voices one after another 1.17
+#
+# One voice and two voices separate cleanly, so 0.7 sits in open ground. What
+# does NOT separate is summed speech from sequential speech - both simply
+# contain two people. This measure cannot tell them apart and nothing else
+# available here can either, so the label says what is actually known: this
+# line has both of them in it.
+TWO_VOICES_SPREAD_RATIO = 0.7
+
 
 def _frames(audio: np.ndarray) -> np.ndarray:
     frame = int(SAMPLE_RATE * FRAME_SECS)
@@ -177,27 +191,33 @@ class Diarizer:
     def _looks_overlapped(self, print_: dict, lang: str) -> bool:
         """Both speakers at once, as far as we can tell without separating them.
 
-        Two signals, and both have to be read carefully:
-          • the ear reported more than one language in a single utterance, and
-          • the pitch wanders far more than one voice does within a phrase.
-        The language alone is NOT enough — an interpreted service is full of
-        utterances where the preacher finishes and the interpreter begins
-        inside one breath, which is turn-taking, not overlap.
+        ⚠ "mixed" is NOT a signal, and believing it was is what broke this.
+        An 86-minute service came back with 130 of 265 lines labelled "both" —
+        half the service supposedly spoken over. It was not. Those lines
+        averaged 183 characters against 65 for the preacher: they were simply
+        LONG utterances, which in an interpreted service naturally contain the
+        preacher and then the interpreter. That is turn-taking, exactly what
+        the docstring used to claim was excluded, and the mixed-language rule
+        defeated the very thing it was written to avoid.
+
+        What is left is acoustic and narrow: a voice sitting squarely between
+        two established profiles, with a pitch spread wider than one person
+        produces. Two voices summed do that; one person talking for twenty
+        seconds does not.
         """
-        if not self.profiles:
+        if len(self.profiles) < 2:
             return False
-        wide = print_["f0_spread"] > 1.5 * max(print_["f0"], 1.0) * 0.35
-        if lang == "mixed" and wide:
-            return True
-        # Sitting squarely between two established profiles, with an unusually
-        # wide pitch spread, is the acoustic signature of two voices summed.
-        if len(self.profiles) == 2 and wide:
-            d0 = semitones(print_["f0"], self.profiles[0]["f0"])
-            d1 = semitones(print_["f0"], self.profiles[1]["f0"])
-            gap = semitones(self.profiles[0]["f0"], self.profiles[1]["f0"])
-            if gap >= DISTINCT_SEMITONES and abs(d0 - d1) < gap * 0.3:
-                return True
-        return False
+
+        if semitones(self.profiles[0]["f0"], self.profiles[1]["f0"]) < DISTINCT_SEMITONES:
+            return False      # the two voices are too alike to judge this at all
+
+        # "Sitting between the two profiles" was the obvious test and it does
+        # not work. Measured on genuinely summed voices of 90 Hz and 185 Hz,
+        # the tracker reported 99 Hz: pitch detection locks onto the louder,
+        # lower voice rather than averaging, so a mixture never looks like the
+        # middle. The spread is what gives it away, and it alone is enough.
+        spread = print_["f0_spread"] / max(print_["f0"], 1.0)
+        return spread >= TWO_VOICES_SPREAD_RATIO
 
     # ------------------------------------------------------- assignment ----
     def _score(self, profile: dict, print_: dict, lang: str) -> float:

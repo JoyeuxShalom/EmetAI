@@ -215,8 +215,15 @@ check("and it is reported as overlap rather than guessed",
 consecutive = np.concatenate([say(PREACHER_LINES[3], MALE),
                               say(INTERPRETER_LINES[3], FEMALE)])
 turn = trained.observe(consecutive, "mixed")
-check("two speakers one after another is not called overlap",
-      not turn["overlap"] or turn["speaker"] is None, turn)
+# Honest about what this can and cannot do. Measured: summed voices score 1.09
+# on spread/pitch and SEQUENTIAL voices score 1.17 - indistinguishable. Nothing
+# available here separates "they spoke over each other" from "he spoke, then
+# she did". So the label does not claim simultaneity; it claims the line
+# contains both of them, which is true either way, and refuses to attribute it
+# to one speaker - which is the part that would actually mislead.
+check("a line holding both voices is attributed to neither alone",
+      turn["speaker"] is None, turn)
+check("and it is flagged rather than guessed", turn["role"] == "both", turn)
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)
