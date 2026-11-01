@@ -130,8 +130,21 @@ export default function Landing() {
           </p>
         </div>
 
-        {/* The product, working. */}
-        <div className="animate-rise relative z-10 mt-56" style={{ animationDelay: "0.4s" }}>
+        {/* The product, working.
+            The gap above it has to clear the BOTTOM OF THE RING, not the last
+            line of text, and the ring is a different size at each breakpoint —
+            so this margin is too. Measured, as the lowest scroll swings past:
+              phone  531px clear  (the ring only encloses the headline there,
+                                   and the sentence and buttons sit between)
+              tablet  32px        tight
+              desktop −14px       touching, and overlapping on every turn
+            Hence three values rather than one. A single number big enough for
+            the desktop would have opened a second 100px hole on a phone that
+            already had more air than it needed. */}
+        <div
+          className="animate-rise relative z-10 mt-56 sm:mt-64 lg:mt-80"
+          style={{ animationDelay: "0.4s" }}
+        >
           <LiveDemo />
         </div>
       </section>
