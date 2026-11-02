@@ -711,7 +711,12 @@ def gemini_text_stream(query: str, kind: str, lang: str, history: list[dict],
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=60, context=_ssl_ctx) as r:
+            # Per-read, so this is the gap allowed BETWEEN chunks of a
+            # stream, not the length of the answer. Sixty seconds of silence
+            # from a model is not patience, it is a hang: a service asking
+            # for one definition sat through 61s of it, twice. A stream that
+            # has sent nothing for twenty seconds is not coming.
+            with urllib.request.urlopen(req, timeout=20, context=_ssl_ctx) as r:
                 for raw in r:               # server-sent events, one per line
                     line = raw.decode("utf-8", "replace").strip()
                     if not line.startswith("data:"):
@@ -932,6 +937,53 @@ def _lexicon_entries(q: str, kind: str, scope: str):
     return []
 
 
+def lexicon_is_exact(word: str, scope: str) -> bool:
+    """Did the word land on a transliteration key itself, rather than being
+    dragged there by the one-edit fuzzy scan?"""
+    lex = get_lexicon()
+    q = _fold_query(word)
+    if len(q) < 2:
+        return False
+    ids = lex["index"].get(q, [])
+    if scope == "hebrew":
+        ids = [i for i in ids if i.startswith("H")]
+    elif scope == "greek":
+        ids = [i for i in ids if i.startswith("G")]
+    return bool(ids)
+
+
+def lexicon_leads(q: str, kind: str, scope: str) -> bool:
+    """Whether Strong's should ANSWER this, rather than stand by in case the
+    model fails.
+
+    Strong's was demoted to a fallback for a good reason — it only ever
+    speaks about scripture, so letting it lead would answer "psychology"
+    with a Bible study. But that is a danger of the FUZZY lookup, which will
+    drag any word to within one edit of a transliteration. An exact hit on
+    the transliteration index is a different thing entirely. Measured
+    against the real 18,001-key lexicon:
+
+        exact hit     elohim logos agape shalom hesed ruach koinonia
+                      charis adonai                    9 of 10 terms
+        exact hit     psychology cult computer light love word grace
+                      faith church money economy history science
+                      mother water fire king bread     0 of 18 words
+
+    Not one ordinary English word collides, including the two the old
+    comment feared. So an exact hit answers immediately, offline, from
+    memory, and never troubles the model at all.
+
+    This is not a nicety. A real service asked for Elohim and waited SIXTY
+    ONE SECONDS while a Gemini stream timed out, before being shown the
+    Strong's entry that had been in RAM the whole time.
+    """
+    if kind not in ("definition", "auto") or len(q.split()) > 3:
+        return False
+    if scope in ("hebrew", "greek"):
+        return True
+    return lexicon_is_exact(q, scope)
+
+
 def _free_card(q: str, kind: str, scope: str, lang: str, entries: list) -> dict | None:
     """What Emet can still answer with no AI, or when the AI is unreachable."""
     if entries:
@@ -1011,7 +1063,8 @@ def ask(body: AskBody, authorization: str = Header(default="")):
     db.record_usage(user["id"], "brain_ask", kind)
 
     entries = _lexicon_entries(q, kind, body.scope)
-    card = lexicon_card(q, entries) if body.scope in ("hebrew", "greek") and entries else None
+    card = (lexicon_card(q, entries)
+            if entries and lexicon_leads(q, kind, body.scope) else None)
     failure: Exception | None = None
     if card is None:
         card, failure = ai_card_or_error(q, kind, lang, style)
@@ -1098,8 +1151,11 @@ def ask_stream(body: AskBody, authorization: str = Header(default="")):
         entries = _lexicon_entries(q, kind, body.scope)
         card = None
 
-        if body.scope in ("hebrew", "greek") and entries:
+        if entries and lexicon_leads(q, kind, body.scope):
+            # Answered from memory. No model call, no quota, no waiting.
             card = lexicon_card(q, entries)
+            for event in _card_events(card):
+                yield _sse(event)
         else:
             parser = CardStream()
             produced = False
