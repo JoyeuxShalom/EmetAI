@@ -274,6 +274,23 @@ export class LocalEar {
       }
     }
 
+    /** Tell the ear which names it is about to hear.
+     *
+     *  Recognition is a search over what is plausible, and a name the model
+     *  has never met is not in that search. "Bowazi", "Nawomi", "Elimeleki"
+     *  come back as noise until something puts them there. The church's
+     *  standing vocabulary does that for book names all service long; this
+     *  does it for the people in the chapter actually open.
+     *
+     *  Names only. Priming a transcriber with the SENTENCES it is about to
+     *  hear invites it to hand them back whether or not they were spoken,
+     *  and invented scripture on a wall is far worse than a misspelt name. */
+    primePassage(names: string) {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: "passage", names }))
+      }
+    }
+
     stop() {
       this.stopped = true
       if (this.reconnectTimer !== null) {

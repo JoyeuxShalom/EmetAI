@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { search, parseReference } from "../lib/search"
 import { SpeechListener, detectReference, speechSupported } from "../lib/listener"
+import { namesInChapter } from "../lib/passageNames"
 import {
   normalize,
   refOf,
@@ -1374,10 +1375,21 @@ export default function OperatorView({
           // preacher telling us; a confident quote is the reading itself.
           // Anything less certain is not allowed to move the context.
           if (ref || quote?.confident) {
+            const moved =
+              passageRef.current?.bookNr !== verse.bookNr ||
+              passageRef.current?.chapter !== verse.chapter
             passageRef.current = {
               bookNr: verse.bookNr,
               chapter: verse.chapter,
               at: Date.now(),
+            }
+            // Tell the ear who is in this chapter. Only on a real move —
+            // re-sending the same names on every verse of a reading would
+            // chatter down the socket for nothing.
+            if (moved && quoteBibles.length) {
+              const names = namesInChapter(
+                quoteBibles[0], verse.bookNr, verse.chapter)
+              if (names) earRef.current?.primePassage(names)
             }
           }
 

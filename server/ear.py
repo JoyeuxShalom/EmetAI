@@ -839,6 +839,15 @@ async def ws_endpoint(ws: WebSocket):
         return
     uid = payload["uid"]
     hint = learning.vocabulary_hint(uid) if CONFIG[lang][0] == "gemini" else ""
+    # Names from the chapter the service is actually in, sent by the operator
+    # screen whenever the passage changes. The church's own vocabulary is read
+    # once and is the same all service; this part moves with the reading.
+    #
+    # Only NAMES, never the wording of the verses. Priming a transcriber with
+    # the sentences it is about to hear invites it to return those sentences
+    # whether or not they were spoken, and scripture invented on a wall is a
+    # far worse failure than scripture misspelled.
+    passage_names = ""
     if CONFIG[lang][0] == "gemini":
         # Again on connect: a connection idle since the last service will have
         # been dropped by the far end, and re-opening it costs the first verse.
@@ -884,8 +893,11 @@ async def ws_endpoint(ws: WebSocket):
             # thread and the network call simply waited its turn. The final —
             # the one the congregation is waiting on — gets its own pool.
             pool = FINAL_POOL if (remote and final) else None
+            # The church's standing vocabulary, plus the names from whatever
+            # chapter is open right now.
+            full_hint = "\n".join(x for x in (hint, passage_names) if x)
             text = await loop.run_in_executor(
-                pool, transcribe, lang, audio, not final, notes, hint,
+                pool, transcribe, lang, audio, not final, notes, full_hint,
                 LOCAL_EARS and heard_language in ("", "en", "fr"),
             )
             # Repair mishearings this church has already corrected us on. A
@@ -1005,6 +1017,11 @@ async def ws_endpoint(ws: WebSocket):
                 try:
                     ctl = json.loads(msg["text"])
                 except Exception:
+                    continue
+                if ctl.get("type") == "passage":
+                    # Bounded: a hint longer than the instruction stops being
+                    # a hint. Names only, already filtered by the client.
+                    passage_names = str(ctl.get("names", ""))[:400]
                     continue
                 if ctl.get("type") == "flush" and heard_speech and buffer.size > SAMPLE_RATE * 0.5:
                     # force: a flush means a command was heard and must act
