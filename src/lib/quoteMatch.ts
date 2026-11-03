@@ -161,13 +161,42 @@ function queryVocabulary(idx: Index, tokens: string[]): QueryWord[] {
   return out
 }
 
+/** Where the service currently is: the book and chapter last announced or
+ *  shown. A preacher who says "Proverbs chapter 8" then reads down the page,
+ *  and that is by far the commonest shape of a reading. */
+export type PassageContext = {
+  bookNr: number
+  chapter: number
+  /** When it was set. Stale context is worse than none. */
+  at: number
+}
+
+// How much a verse in the chapter being read is favoured over the same words
+// found anywhere else in the Bible. Not a licence to invent: it multiplies a
+// score the verse already earned, so a line that matches nothing still
+// matches nothing.
+const IN_CHAPTER_BOOST = 1.45
+// The reading may have crossed into the next chapter without anyone saying
+// so, and a preacher comparing two passages stays in one book.
+const IN_BOOK_BOOST = 1.12
+// After this long with nothing to reinforce it, the service has moved on and
+// the old chapter is a liability rather than a hint.
+const CONTEXT_STALE_MS = 6 * 60 * 1000
+// What a verse from somewhere else entirely must clear while a chapter is
+// open. A preacher reading Genesis 1 really does quote John 1:1, so this
+// cannot be a ban — but it should take a strong match to pull the screen out
+// of the passage everyone is looking at, not a five-word fragment.
+const OUT_OF_PASSAGE_FLOOR = 1.45
+
 /** Match a spoken utterance against the Bible's verses.
  *  `threshold` is the floor for offering a verse at all; a match at or above
- *  CONFIDENT is safe to project immediately. */
+ *  CONFIDENT is safe to project immediately.
+ *  `context`, when given, favours the passage the service is already in. */
 export function matchQuote(
   bible: Bible,
   utterance: string,
-  threshold = 0.42
+  threshold = 0.42,
+  context?: PassageContext
 ): QuoteMatch | null {
   // The last ~34 words: a verse is rarely longer, and earlier words belong to
   // the sentence before it.
@@ -197,6 +226,9 @@ export function matchQuote(
 
   // Pass 2 — score each candidate against the whole query vocabulary, keeping
   // the runner-up so we can tell a clear winner from a coin toss.
+  // Resolved once rather than per candidate.
+  const live = !!context && Date.now() - context.at < CONTEXT_STALE_MS
+
   let bestVi = -1
   let bestScore = 0
   let runnerUp = 0
@@ -224,9 +256,29 @@ export function matchQuote(
     const coverage = idfSum / idx.verseIdfSum[vi]   // of this verse, how much was said
     // Weighted geometric mean. Precision dominates so a compressed paraphrase
     // still wins, while coverage stops a single rare word carrying a match.
-    const score = Math.pow(precision, 0.68) * Math.pow(coverage, 0.32)
+    let score = Math.pow(precision, 0.68) * Math.pow(coverage, 0.32)
 
-    if (score < threshold) return
+    // Where the service already is counts as evidence. On 2 November the
+    // preacher read Genesis 1 aloud and said "depths of the surface of the
+    // deep"; those words alone scored higher against Isaiah 51:10 than
+    // against Genesis 1:2, and Isaiah went on the wall in the middle of a
+    // Genesis reading. Nothing in the sentence could have fixed that — the
+    // only thing that knew better was the chapter already open.
+    let floor = threshold
+    if (live) {
+      const v = idx.verses[vi]
+      if (v.bookNr === context!.bookNr) {
+        score *= v.chapter === context!.chapter ? IN_CHAPTER_BOOST : IN_BOOK_BOOST
+      } else {
+        floor = threshold * OUT_OF_PASSAGE_FLOOR
+      }
+    }
+    // A boost is a thumb on the scale, not a new unit. Left uncapped it
+    // printed "147%" on the operator's panel and sailed past CONFIDENT on
+    // arithmetic rather than on evidence.
+    if (score > 1) score = 1
+
+    if (score < floor) return
     if (score > bestScore) {
       runnerUp = bestScore
       bestScore = score

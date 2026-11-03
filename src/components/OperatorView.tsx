@@ -17,7 +17,12 @@ import {
 } from "../data/bible"
 import type { OnlineBible } from "../data/online"
 import { type AudioSource, LocalEar } from "../lib/localEar"
-import { CONFIDENT, matchQuote, warmQuoteIndex } from "../lib/quoteMatch"
+import {
+  CONFIDENT,
+  matchQuote,
+  warmQuoteIndex,
+  type PassageContext,
+} from "../lib/quoteMatch"
 import { CommandGate } from "../lib/commandGate"
 import { FAST_COMMAND_MS, SILENCE_MS, UtteranceAssembler } from "../lib/utterance"
 import {
@@ -411,6 +416,12 @@ export default function OperatorView({
   // Which language the ear says the current utterance was spoken in. Set by
   // the transport, read when a verse is detected — see CONFIRM_WINDOW_MS.
   const lastLangRef = useRef<string>("")
+  // The book and chapter the service is currently in. A preacher announces
+  // "Proverbs chapter 8" and then reads down the page, so what was shown a
+  // moment ago is the best clue to what is being recited now. Only set from
+  // an explicit reference or a confident match — a shaky guess that set the
+  // context would bias every line after it towards its own mistake.
+  const passageRef = useRef<PassageContext | null>(null)
   // Who the ear says spoke the current utterance — "preacher",
   // "interpreter", "speaker 1/2", or "both" when it heard two people at
   // once and refused to guess between them.
@@ -1341,7 +1352,8 @@ export default function OperatorView({
             for (const qb of quoteBibles) {
               // The current sentence only. Joining it to the previous one
               // invents word combinations that were never actually spoken.
-              const m = matchQuote(qb, text)
+              const m = matchQuote(qb, text, undefined,
+                passageRef.current ?? undefined)
               if (m && (!quote || m.score > quote.score)) {
                 quote = { ...m, sourceId: qb.meta.id }
               }
@@ -1357,6 +1369,18 @@ export default function OperatorView({
           }
 
           if (!verse) return
+
+          // Remember where the service is. An explicit reference is the
+          // preacher telling us; a confident quote is the reading itself.
+          // Anything less certain is not allowed to move the context.
+          if (ref || quote?.confident) {
+            passageRef.current = {
+              bookNr: verse.bookNr,
+              chapter: verse.chapter,
+              at: Date.now(),
+            }
+          }
+
           // Don't re-detect the verse already on the wall (preacher reading it aloud).
           if (nowShowing && refOf(nowShowing) === refOf(verse)) return
 
