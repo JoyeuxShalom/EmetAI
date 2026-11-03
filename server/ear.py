@@ -37,10 +37,21 @@ REMOTE_INTERIM_TAIL_SECS = 3.0
 # Below this, an utterance waits and goes with the next one. A free-tier key is
 # limited per MINUTE, and a service full of short bursts - "Amen", "Saba, saba,
 # saba" - used to spend one call on each and exhaust the allowance in seconds.
-REMOTE_MIN_SEND_SECS = 2.0
+#
+# It was 2.0, and that was the single largest delay in the pipeline: a recited
+# verse shorter than two seconds sat here waiting for company, then waited the
+# flush below, and only then began its round trip. The operator watched the
+# verse arrive after the preacher had moved on to the next one.
+#
+# The budget to lower it came from deleting the empty-transcript retry. That
+# retry spent 102 calls of a 93-minute service on audio that was not speech,
+# so there is now room to spend calls on audio that IS.
+REMOTE_MIN_SEND_SECS = 1.2
 # ...but it must not wait for ever. After this much quiet, whatever is held
-# goes regardless, so the last words before a pause are never lost.
-PENDING_FLUSH_SECS = 2.5
+# goes regardless, so the last words before a pause are never lost. Every
+# tenth of a second here is a tenth the congregation spends looking at the
+# previous verse.
+PENDING_FLUSH_SECS = 1.2
 # …and rarely. A Whisper pass uses every core it can get, so a live decode
 # every 0.8s starved the event loop and pushed the final — the one that puts
 # scripture on the wall — from 2.7s out to 8.5s. Measured. The live line is a
@@ -136,9 +147,6 @@ GEMINI_LANGUAGES = "Kinyarwanda, English or French"
 # a single utterance is long enough that it should already have been cut.
 GEMINI_MIN_SECS = 0.6
 GEMINI_MAX_SECS = 25.0
-# Above this much speech, an empty transcript is treated as a failed call and
-# retried rather than accepted as silence.
-EMPTY_RETRY_SECS = 1.5
 # How long to wait before retrying a rate-limited call. Free-tier limits are
 # per minute, so a brief pause usually clears; the deadline still caps what
 # the operator actually waits for.
@@ -489,10 +497,6 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
     }
     body = _json.dumps(payload).encode("utf-8")
 
-    # Set when a call came back with no words at all and we are spending a
-    # second round trip to ask again. Only so the outcome can be reported.
-    retried_on_empty = False
-
     # One attempt per model in the chain, plus one: a model that is out
     # of quota for the day must be able to hand on to the next, and with
     # only two attempts the third and fourth were never reachable.
@@ -552,30 +556,26 @@ def transcribe_with_gemini(audio: np.ndarray, hint: str = "") -> tuple[str, str]
             if heard.get("request") is True:
                 lang_heard += "|request"
             spoken_text = str(heard.get("text", "")).strip()
-            # An empty transcript for several seconds of clear speech is a
-            # failure, not an answer, so it is worth the one retry we already
-            # have in hand.
+            # An empty transcript used to be retried, on the theory that the
+            # model had fumbled real speech. One service was instrumented to
+            # find out, and the answer is not close:
             #
-            # How often that happens was guessed here at one call in twenty.
-            # A real 86-minute service said otherwise: 263 lines recorded and
-            # 114 empty transcripts, so very nearly a third of all calls, six
-            # times the guess. That is a third of the service spent waiting an
-            # extra round trip, and on a free key it is also a quarter of the
-            # day's 500 calls spent on answers that were already empty.
+            #     102 empty transcripts
+            #      99 retries recovered NOTHING          97%
+            #       3 retries recovered words             3%
             #
-            # Whether those retries RECOVER anything is still unmeasured,
-            # because only the failures were ever logged. Both outcomes are
-            # logged now, so one service settles it: if the retry rarely finds
-            # words, it should go, and a third of the waiting goes with it.
-            if not spoken_text and secs >= EMPTY_RETRY_SECS and attempt == 1:
-                print(f"[ear] empty transcript for {secs:.1f}s of speech"
-                      " - retrying")
-                retried_on_empty = True
-                continue
-            if retried_on_empty:
-                print("[ear] retry recovered %s"
-                      % (f"{len(spoken_text)} characters" if spoken_text
-                         else "nothing - that audio was probably not speech"))
+            # The audio was not speech. A service is full of music, applause
+            # and a congregation answering back, and asking the same model the
+            # same question about the same seconds of it gets the same
+            # silence. So the retry is gone.
+            #
+            # It cost more than the quota it burned. Transcription runs in
+            # order, so every wasted round trip sat in front of the NEXT
+            # utterance — which is the one with the verse in it. Across the
+            # 93-minute service: 204 of roughly 419 calls were spent on
+            # silence, and each one delayed real speech behind it.
+            if not spoken_text:
+                return "", lang_heard
             return spoken_text, lang_heard
         except urllib.error.HTTPError as e:
             print(f"[ear] Gemini transcription HTTP {e.code} (attempt {attempt})")
